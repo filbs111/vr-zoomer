@@ -17,29 +17,34 @@
     <script id="shader-simple-vs" type="x-shader/x-vertex">
         attribute vec3 aVertexPosition;
         attribute vec3 aVertexNormal;
+        attribute vec2 aTextureCoord;
         uniform mat4 uMVMatrix;
         uniform mat4 uPMatrix;
         uniform vec3 uModelScale;
+        varying vec2 vTextureCoord;
         varying float light;
-                
+        
         void main(void) {
             vec4 transformedCoord = uMVMatrix * vec4(uModelScale*aVertexPosition, 1.0);
             gl_Position = uPMatrix * transformedCoord;
     
-            vec4 transformedNormal = uMVMatrix * vec4(aVertexNormal,0.0);
-            light = transformedNormal.y;
-            //light = max(light,0.0);
+            vTextureCoord = aTextureCoord;
+
+            light = dot(aVertexNormal, vec3(sqrt(.2),sqrt(.7),sqrt(.1))); //fixed in cube frame. TODO allow cube to rotate. either wants light pos/dir in cube frame, or pass in mMatrix
+
             light = .5*(light+1.);
         }
     </script>
 
     <script id="shader-simple-fs" type="x-shader/x-fragment">    
         precision mediump float;
-	    uniform vec4 uColor;
+        uniform vec4 uColor;
+        uniform sampler2D uSampler;
+        varying vec2 vTextureCoord;
         varying float light;
         
         void main(void) {
-            gl_FragColor = uColor * vec4( vec3(light), 1.0);
+            gl_FragColor = uColor * texture2D(uSampler, vTextureCoord) * vec4( vec3(light), 1.0);
         }
     </script>
 

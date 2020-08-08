@@ -131,6 +131,7 @@ function setupScene(){
     mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.1,200.0,pMatrix);
 
     movePlayer([0,0,1]);   //move back so see cube
+	
 }
 
 function drawScene(frameTime){
@@ -147,6 +148,9 @@ function drawScene(frameTime){
 
     var activeShaderProgram = shaderPrograms.basic;
     gl.useProgram(activeShaderProgram);
+
+    bind2dTextureIfRequired(texture);		//currently could just keep this bound
+    gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
 
     var boxScale = 0.1;
     gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [boxScale,boxScale,boxScale]);
