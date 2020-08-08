@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Page Title</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel='stylesheet' type='text/css' media='screen' href='main.css'>
+
+    <script type="text/javascript" src="lib/stats.min.js"></script>
+    <script type="text/javascript" src="lib/gl-matrix-min.js"></script>
+    <script type="text/javascript" src="utils/webgl_utils.js"></script>
+    <script type="text/javascript" src="utils/keys.js"></script>
+    <script type="text/javascript" src="data/levelCubeData.js"></script>
+    
+
+    <script id="shader-simple-vs" type="x-shader/x-vertex">
+        attribute vec3 aVertexPosition;
+        attribute vec3 aVertexNormal;
+        uniform mat4 uMVMatrix;
+        uniform mat4 uPMatrix;
+        uniform vec3 uModelScale;
+        varying float light;
+                
+        void main(void) {
+            vec4 transformedCoord = uMVMatrix * vec4(uModelScale*aVertexPosition, 1.0);
+            gl_Position = uPMatrix * transformedCoord;
+    
+            vec4 transformedNormal = uMVMatrix * vec4(aVertexNormal,0.0);
+            light = transformedNormal.y;
+            //light = max(light,0.0);
+            light = .5*(light+1.);
+        }
+    </script>
+
+    <script id="shader-simple-fs" type="x-shader/x-fragment">    
+        precision mediump float;
+	    uniform vec4 uColor;
+        varying float light;
+        
+        void main(void) {
+            gl_FragColor = uColor * vec4( vec3(light), 1.0);
+        }
+    </script>
+
+
+    <script src='main.js'></script>
+
+
+</head>
+<body onload="init()">
+    <canvas id="mycanvas"></canvas>
+</body>
+</html>
