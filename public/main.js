@@ -130,7 +130,7 @@ function setupScene(){
     gl.clearColor.apply(gl,[0,1,0,1]);
     mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.1,200.0,pMatrix);
 
-    movePlayer([0,0,-1]);   //move back so see cube
+    movePlayer([0,0,1]);   //move back so see cube
 }
 
 function drawScene(frameTime){
@@ -143,6 +143,7 @@ function drawScene(frameTime){
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     mat4.set(playerCamera, mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
+    mat4.inverse(mvMatrix);
 
     var activeShaderProgram = shaderPrograms.basic;
     gl.useProgram(activeShaderProgram);
@@ -171,7 +172,7 @@ var guiParams = {
 var iterateMechanics = (function iterateMechanics(){
     var lastTime=Date.now();
     
-    var moveSpeed=0.000075;
+    var moveSpeed=-0.000075;
     var rotateSpeed=-0.0005;
 
     var playerVelVec = [0,0,0];
@@ -225,7 +226,7 @@ var iterateMechanics = (function iterateMechanics(){
             //TODO speed drag
 
             rotatePlayer(scalarvectorprod(timeStep * rotateSpeed,playerAngVelVec));
-			movePlayer(scalarvectorprod(timeStep * moveSpeed,playerVelVec));
+			movePlayer(scalarvectorprod(timeStep * moveSpeed,playerVelVec));    //note currently momentum is conserved in frame of player (behaves "on rails")
         }
     }
 
