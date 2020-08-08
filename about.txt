@@ -1,0 +1,23 @@
+want to try angle preserving zooming (similar to fisheye to zoom out for situational awareness, and telescopic zoom in) in VR.
+
+test-node-script.js validates angle preservation for arbitrary zoom. 
+want to try applying this zoom initially for a cockpit view, with the zoom axis being fixed relative to the cockpit - this concept be useful in "real life", and expect less sickness problems - behaviour will be strange when cockpit is rotating, but moving view about within cockpit should seem natural.
+
+after this can try having the zoom axis move with the user's head. suspect this maybe unpleasant.
+
+for initial non-vr implementation. render cubemap views. For efficiency may wish to skew view frustra by moving cubemap projection centre away from middle of cube.
+then reproject these views onto screen... (given a screen FOV - basically how far away from the monitor the player is.) 
+for simple test, in addition to world objects to fly about, fix some spheres or boxes around cockpit. hope to observe circle, right angle preservation (for camera pointed at point of interest, or for viewer at expected viewing distance from monitor).
+Implement rotating view independently from cockpit direction - eg mouselook + arrow keys. 
+
+non-stereo VR implementation can come next, can use to prove concept.
+
+stereo rendering for VR may be tricky. might do - 
+* simply by rendering a depth cubemap, though the results won't be great. rendering cubemaps is already wasteful though so this maybe sensible optimisation
+* rendering a simple cubemap for each eye, depth perception will go away 90 deg away from view direction (in game world), which, in fisheye view, will still be visible to player
+* shifting vertices in vert shader when drawing cubemap
+* shifting vertices in vert shader and skipping drawing cubemaps! want decent tesselation for this.
+* using a raymarcher or similar and skip triangulation
+
+might want zoom to also "blow up" far away objects when zoom. - this might come for free, or might want the distance between left/right cameras to be changed. 
+can this be done such that the perceived thickness of objects changes proportionately to the size "on screen" ? 
