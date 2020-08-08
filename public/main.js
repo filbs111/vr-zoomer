@@ -152,10 +152,12 @@ function drawScene(frameTime){
     gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,0,0,1]);
 
     prepBuffersForDrawing(cubeBuffers, activeShaderProgram);
-    drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
-
-    //step 1 draw some cubes without camera controls
-
+    var moveVec = vec3.create([0,0,0.5]);
+    for (var xx=0;xx<10;xx++){
+        drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
+        mat4.translate(mvMatrix, moveVec);
+        drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
+    }
 
 }
 
