@@ -14,6 +14,7 @@ function init(){
 	var gui = new dat.GUI();
 	gui.add(guiParams, "drawUsingCubemap");
 	gui.add(guiParams, "viewShiftZ", -1,1,0.02);
+	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians
 
     canvas = document.getElementById("mycanvas");
 
@@ -289,6 +290,8 @@ function drawScene(frameTime){
         gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
 		mat4.identity(mvMatrix);
 		
+		mat4.rotate(mvMatrix,  guiParams.sideLook, vec3.create([0,1,0]));
+
 		//simple translation by -1 gets stereographic angle preserving projection on screen
 		//however, want to get view that's angle preserving when viewed at the set pMatrix FOV. to do this, scale view.
 		var scaleFactor = 1/Math.sqrt(1-guiParams.viewShiftZ*guiParams.viewShiftZ);
@@ -336,7 +339,8 @@ function rotateCameraForFace(ii){
 //TODO ui controls
 var guiParams = {
 	drawUsingCubemap:true,
-	viewShiftZ:0
+	viewShiftZ:0,
+	sideLook:0
 }
 
 var iterateMechanics = (function iterateMechanics(){
