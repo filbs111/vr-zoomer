@@ -11,6 +11,9 @@ function init(){
 	stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
 	document.body.appendChild( stats.dom );
 
+	var gui = new dat.GUI();
+	gui.add(guiParams, "drawUsingCubemap");
+
     canvas = document.getElementById("mycanvas");
 
     initGL();
@@ -312,9 +315,6 @@ function rotateCameraForFace(ii){
 
 //TODO ui controls
 var guiParams = {
-    control:{
-        smoothMouse:0.5
-    },
     drawUsingCubemap:true,
 }
 
