@@ -12,6 +12,7 @@ function init(){
 	document.body.appendChild( stats.dom );
 
 	var gui = new dat.GUI();
+	gui.add(guiParams, "fov", 10,150,5).onChange(setPerspective);
 	gui.add(guiParams, "drawUsingCubemap");
 	gui.add(guiParams, "viewShiftZ", -1,1,0.02);
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians
@@ -212,10 +213,13 @@ function setupScene(){
     mat4.identity(playerCamera);
     
     movePlayer([0,0,1]);   //move back so see cube
-    
-	mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.005,200.0, pMatrixScreen);	//60 deg -> view from 1 viewport height away. smaller than typical monitor viewing,
-																							//but useful for testing. 
+	
+	setPerspective();																		 
     mat4.perspective(90, 1, 0.005, 200.0, cmapPMatrix);
+}
+
+function setPerspective(){
+	mat4.perspective(guiParams.fov, gl.viewportWidth/gl.viewportHeight, 0.005,200.0, pMatrixScreen);
 }
 
 function drawWorldScene(camNum){
@@ -365,6 +369,7 @@ function rotateCameraForFace(ii){
 
 //TODO ui controls
 var guiParams = {
+	fov:40,	//vertical fov. 40deg = -20 to +20.
 	drawUsingCubemap:true,
 	viewShiftZ:0,
 	sideLook:0
