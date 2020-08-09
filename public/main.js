@@ -1,5 +1,8 @@
 var shaderPrograms={};
 var pMatrix = mat4.create();
+var pMatrixScreen = mat4.create();
+var cmapPMatrix = mat4.create();
+
 var mvMatrix = mat4.create();
 var playerCamera;
 
@@ -13,6 +16,7 @@ function init(){
     initGL();
     initShaders();
     initTexture();
+    initCubemapFramebuffer(cubemapView);
     initBuffers();
     completeShaders();
     
@@ -24,6 +28,7 @@ function init(){
 
 function initShaders(){
     shaderPrograms.basic = loadShader("shader-simple-vs", "shader-simple-fs");
+    shaderPrograms.fullscreenTextured = loadShader( "shader-fullscreen-vs", "shader-fullscreen-fs"); 
 }
 
 function completeShaders(){
@@ -69,16 +74,84 @@ var bind2dTextureIfRequired = (function createBind2dTextureIfRequiredFunction(){
 	return function(texToBind, texId = gl.TEXTURE0){	//TODO use different texture indices to keep textures loaded?
 								//curently just assuming using tex 0, already set as active texture (is set active texture a fast gl call?)
 		currentBoundTex = currentlyBoundTextures[texId];	//note that ids typically high numbers. gl.TEXTURE0 and so on. seem to be consecutive numbers but don't know if guaranteed.
-		if (texToBind != currentBoundTex){
-			gl.activeTexture(texId);
+        gl.activeTexture(texId);    //do always to handle changing active tex when craeting cubemap buffers
+        if (texToBind != currentBoundTex){
+			//gl.activeTexture(texId);
 			gl.bindTexture(gl.TEXTURE_2D, texToBind);
 			currentlyBoundTextures[texId] = texToBind;
 		}
 	}
 })();
 
+
+var cubemapView={};
+var cubemapSize = 1024;
+function initCubemapFramebuffer(view){
+    var framebuffers = [];
+	view.framebuffers = framebuffers;
+	
+	view.cubemapTexture = gl.createTexture();
+	
+	gl.activeTexture(gl.TEXTURE1);	//use texture 1 always for cubemap
+	gl.bindTexture(gl.TEXTURE_CUBE_MAP, view.cubemapTexture);
+	gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+	var faces = [gl.TEXTURE_CUBE_MAP_POSITIVE_X,
+				 gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
+				 gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
+				 gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
+				 gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
+				 gl.TEXTURE_CUBE_MAP_NEGATIVE_Z];
+	
+	for (var i = 0; i < faces.length; i++)
+	{
+		var face = faces[i];
+			
+		var framebuffer = gl.createFramebuffer();
+		gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+		framebuffer.width = cubemapSize;
+		framebuffer.height = cubemapSize;
+		framebuffers[i]=framebuffer;
+		
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.texImage2D(face, 0, gl.RGBA, cubemapSize, cubemapSize, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+	
+		var renderbuffer = gl.createRenderbuffer();
+		gl.bindRenderbuffer(gl.RENDERBUFFER, renderbuffer);
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, cubemapSize, cubemapSize);
+				
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, face, view.cubemapTexture, 0);
+		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, renderbuffer);
+	}
+	
+	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+	//gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);	//this gets rid of errors being logged to console. 
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+var fsDeep = .4; //todo pass in (inverse) size to shader when drawing fullscreen quad, but this easier to adjust zoom
+var fsData = {
+	vertices:[
+		-1,-1,-fsDeep,
+		-1,1,-fsDeep,
+		1,-1,-fsDeep,
+		1,1,-fsDeep
+	],
+	indices:[
+		//0,1,2,
+		0,2,1,
+		//1,3,2
+		1,2,3
+	]
+}
+
+var fsBuffers={};
 var cubeBuffers={};
 function initBuffers(){
+    loadBufferData(fsBuffers, fsData);
     loadBufferData(cubeBuffers, levelCubeData);
 
     function loadBufferData(bufferObj, sourceData){
@@ -124,26 +197,20 @@ function bufferArrayDataGeneral(buffer, arr, size){
 
 function setupScene(){
     playerCamera = mat4.create();
-    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     mat4.identity(playerCamera);
     
-    gl.clearColor.apply(gl,[0,1,0,1]);
-    mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.1,200.0,pMatrix);
-
     movePlayer([0,0,1]);   //move back so see cube
-	
+    
+    mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.01,200.0, pMatrixScreen);
+    mat4.perspective(90, 1, 0.01, 200.0, cmapPMatrix);
 }
 
-function drawScene(frameTime){
-    resizecanvas();
-    iterateMechanics(frameTime);
-    requestAnimationFrame(drawScene);
-    stats.end();
-    stats.begin();
-   
+function drawWorldScene(camNum){
+    mat4.set(playerCamera, mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
+    rotateCameraForFace(camNum);    //cubemap cameras 0 to 5. non-cubemap camera # -1
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    mat4.set(playerCamera, mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
     mat4.inverse(mvMatrix);
 
     var activeShaderProgram = shaderPrograms.basic;
@@ -164,13 +231,91 @@ function drawScene(frameTime){
         drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
     }
 
+    //if (camNum>-1){return;}
+    //if drawing the non-cubemap camera, draw an object to screen using that cubemap
 }
+
+function drawScene(frameTime){	
+    resizecanvas();
+    iterateMechanics(frameTime);
+    requestAnimationFrame(drawScene);
+    stats.end();
+    stats.begin();
+
+    gl.clearColor.apply(gl,[0,0,1,1]);  //purple
+    var numFacesToUpdate = 6;
+    mat4.set(cmapPMatrix, pMatrix);
+    
+    for (var ii=0;ii<numFacesToUpdate;ii++){
+        var framebuffer = cubemapView.framebuffers[ii];
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        gl.viewport(0, 0, framebuffer.width, framebuffer.height);
+    //    mat4.identity(worldCamera);
+     //   rotateCameraForFace(ii);
+        drawWorldScene(ii);
+    }
+    
+    //draw scene to screen. 
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+    mat4.set(pMatrixScreen, pMatrix);
+
+    if (guiParams.drawUsingCubemap){
+        gl.clearColor.apply(gl,[0,0,1,1]);  //blue
+
+        //various ways to do this. some maybe more efficient than others
+        //1. fullscreen quad, per vertex projection. should be simple for undistorted. 
+
+        var activeShaderProgram = shaderPrograms.fullscreenTextured;
+        gl.useProgram(activeShaderProgram);
+        gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
+
+        drawObjectFromBuffers(fsBuffers, activeShaderProgram);
+
+
+        //2. simple projection on a sphere. should be easy maths, can do in vertex shader.
+
+    }else{
+        gl.clearColor.apply(gl,[0,1,0,1]);  //green
+        drawWorldScene(-1);
+    }
+}
+
+function rotateCameraForFace(ii){
+	var piBy2= Math.PI/2;
+	var xVec = vec3.create([1,0,0]);
+	var yVec = vec3.create([0,1,0]);
+	var zVec = vec3.create([0,0,1]);
+    switch(ii){
+        case 0:
+            mat4.rotate(mvMatrix, piBy2, yVec);
+            break;
+        case 1:
+			mat4.rotate(mvMatrix, -piBy2, yVec);
+            break;
+        case 2:
+			mat4.rotate(mvMatrix, -piBy2, xVec);
+			mat4.rotate(mvMatrix, Math.PI, zVec);
+            break;
+        case 3:
+			mat4.rotate(mvMatrix, piBy2, xVec);
+			mat4.rotate(mvMatrix, Math.PI, zVec);
+            break;
+        case 4:
+			mat4.rotate(mvMatrix, Math.PI, yVec);
+            break;
+        case 5:
+            break;
+    }
+    
+}   
 
 //TODO ui controls
 var guiParams = {
     control:{
         smoothMouse:0.5
-    }
+    },
+    drawUsingCubemap:true,
 }
 
 var iterateMechanics = (function iterateMechanics(){
@@ -250,6 +395,11 @@ function movePlayer(vec){
 //borrowed from 3sphere-explorer matfuncs.js
 function scalarvectorprod(sca,vec){
 	return vec.map(function(val){return sca*val;});
+}
+
+function drawObjectFromBuffers(bufferObj, shaderProg, usesCubeMap){
+	prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap);
+	drawObjectFromPreppedBuffers(bufferObj, shaderProg);
 }
 
 function prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap){
