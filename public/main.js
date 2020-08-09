@@ -13,6 +13,7 @@ function init(){
 
 	var gui = new dat.GUI();
 	gui.add(guiParams, "drawUsingCubemap");
+	gui.add(guiParams, "viewShiftZ", -1,1,0.02);
 
     canvas = document.getElementById("mycanvas");
 
@@ -208,7 +209,8 @@ function setupScene(){
     
     movePlayer([0,0,1]);   //move back so see cube
     
-    mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.01,200.0, pMatrixScreen);
+	mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.01,200.0, pMatrixScreen);	//60 deg -> view from 1 viewport height away. smaller than typical monitor viewing,
+																							//but useful for testing. 
     mat4.perspective(90, 1, 0.01, 200.0, cmapPMatrix);
 }
 
@@ -286,6 +288,13 @@ function drawScene(frameTime){
         gl.useProgram(activeShaderProgram);
         gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
 		mat4.identity(mvMatrix);
+		
+		//simple translation by -1 gets stereographic angle preserving projection on screen
+		//however, want to get view that's angle preserving when viewed at the set pMatrix FOV. to do this, scale view.
+		var scaleFactor = 1/Math.sqrt(1-guiParams.viewShiftZ*guiParams.viewShiftZ);
+		mat4.scale(mvMatrix, vec3.create([1,1,scaleFactor]));
+
+		mat4.translate(mvMatrix, vec3.create([0,0,guiParams.viewShiftZ]));
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
 
@@ -326,7 +335,8 @@ function rotateCameraForFace(ii){
 
 //TODO ui controls
 var guiParams = {
-    drawUsingCubemap:true,
+	drawUsingCubemap:true,
+	viewShiftZ:0
 }
 
 var iterateMechanics = (function iterateMechanics(){
