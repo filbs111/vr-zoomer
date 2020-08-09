@@ -16,6 +16,28 @@
     <script type="text/javascript" src="data/levelCubeData.js"></script>
     
 
+    <script id="shader-notex-vs" type="x-shader/x-vertex">
+        attribute vec3 aVertexPosition;
+        uniform mat4 uMVMatrix;
+        uniform mat4 uPMatrix;
+        uniform vec3 uModelScale;
+        
+        void main(void) {
+            vec4 transformedCoord = uMVMatrix * vec4(uModelScale*aVertexPosition, 1.0);
+            gl_Position = uPMatrix * transformedCoord;
+        }
+    </script>
+
+    <script id="shader-notex-fs" type="x-shader/x-fragment">    
+        precision mediump float;
+        uniform vec4 uColor;
+        
+        void main(void) {
+            gl_FragColor = uColor;
+        }
+    </script>
+
+
     <script id="shader-simple-vs" type="x-shader/x-vertex">
         attribute vec3 aVertexPosition;
         attribute vec3 aVertexNormal;

@@ -35,6 +35,7 @@ function initShaders(){
     shaderPrograms.basic = loadShader("shader-simple-vs", "shader-simple-fs");
     shaderPrograms.fullscreenTextured = loadShader( "shader-fullscreen-vs", "shader-fullscreen-fs");
     shaderPrograms.simpleCubemap = loadShader( "shader-simple-cmap-vs", "shader-simple-cmap-fs");
+    shaderPrograms.noTex = loadShader( "shader-notex-vs", "shader-notex-fs");
 }
 
 function completeShaders(){
@@ -156,11 +157,13 @@ var fsData = {
 
 var fsBuffers={};
 var cubeBuffers={};
+var sphereBuffers={};
 var sphereBuffersHiRes={};
 
 function initBuffers(){
     loadBufferData(fsBuffers, fsData);
 	loadBufferData(cubeBuffers, levelCubeData);
+	loadBufferData(sphereBuffers, makeSphereData(16,32,1));
 	loadBufferData(sphereBuffersHiRes, makeSphereData(127,255,1)); //near index limit 65536.
 
     function loadBufferData(bufferObj, sourceData){
@@ -210,9 +213,9 @@ function setupScene(){
     
     movePlayer([0,0,1]);   //move back so see cube
     
-	mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.01,200.0, pMatrixScreen);	//60 deg -> view from 1 viewport height away. smaller than typical monitor viewing,
+	mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.005,200.0, pMatrixScreen);	//60 deg -> view from 1 viewport height away. smaller than typical monitor viewing,
 																							//but useful for testing. 
-    mat4.perspective(90, 1, 0.01, 200.0, cmapPMatrix);
+    mat4.perspective(90, 1, 0.005, 200.0, cmapPMatrix);
 }
 
 function drawWorldScene(camNum){
@@ -241,8 +244,27 @@ function drawWorldScene(camNum){
         drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
     }
 
-    //if (camNum>-1){return;}
-    //if drawing the non-cubemap camera, draw an object to screen using that cubemap
+	var activeShaderProgram = shaderPrograms.noTex;
+    gl.useProgram(activeShaderProgram);
+	prepBuffersForDrawing(sphereBuffers, activeShaderProgram);
+
+	var miniBoxScale = 0.0001;
+	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [miniBoxScale,miniBoxScale,miniBoxScale]);
+    gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,0,1]);	//yellow
+
+	//draw objects around "cockpit"
+	mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
+	rotateCameraForFace(camNum);
+	//mat4.inverse(mvMatrix);	//??
+	mat4.translate(mvMatrix, vec3.create([0,0,-0.01]));	//straight ahead
+	drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
+
+	mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
+	rotateCameraForFace(camNum);
+	mat4.translate(mvMatrix, vec3.create([0.01,0,0]));		//to the left
+	drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
+
+
 }
 
 function drawScene(frameTime){	
