@@ -31,7 +31,8 @@ function init(){
 
 function initShaders(){
     shaderPrograms.basic = loadShader("shader-simple-vs", "shader-simple-fs");
-    shaderPrograms.fullscreenTextured = loadShader( "shader-fullscreen-vs", "shader-fullscreen-fs"); 
+    shaderPrograms.fullscreenTextured = loadShader( "shader-fullscreen-vs", "shader-fullscreen-fs");
+    shaderPrograms.simpleCubemap = loadShader( "shader-simple-cmap-vs", "shader-simple-cmap-fs");
 }
 
 function completeShaders(){
@@ -153,9 +154,12 @@ var fsData = {
 
 var fsBuffers={};
 var cubeBuffers={};
+var sphereBuffersHiRes={};
+
 function initBuffers(){
     loadBufferData(fsBuffers, fsData);
-    loadBufferData(cubeBuffers, levelCubeData);
+	loadBufferData(cubeBuffers, levelCubeData);
+	loadBufferData(sphereBuffersHiRes, makeSphereData(127,255,1)); //near index limit 65536.
 
     function loadBufferData(bufferObj, sourceData){
 		bufferObj.vertexPositionBuffer = gl.createBuffer();
@@ -245,7 +249,7 @@ function drawScene(frameTime){
     stats.end();
     stats.begin();
 
-    gl.clearColor.apply(gl,[0,0,1,1]);  //purple
+    gl.clearColor.apply(gl,[0,1,1,1]);  //cyan
     var numFacesToUpdate = 6;
     mat4.set(cmapPMatrix, pMatrix);
     
@@ -264,19 +268,26 @@ function drawScene(frameTime){
     mat4.set(pMatrixScreen, pMatrix);
 
     if (guiParams.drawUsingCubemap){
-        gl.clearColor.apply(gl,[0,0,1,1]);  //blue
+		gl.clearColor.apply(gl,[0,0,1,1]);  //blue
 
         //various ways to do this. some maybe more efficient than others
         //1. fullscreen quad, per vertex projection. should be simple for undistorted. 
 
+		/*
         var activeShaderProgram = shaderPrograms.fullscreenTextured;
         gl.useProgram(activeShaderProgram);
         gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
 
         drawObjectFromBuffers(fsBuffers, activeShaderProgram);
-
+		*/
 
         //2. simple projection on a sphere. should be easy maths, can do in vertex shader.
+		var activeShaderProgram = shaderPrograms.simpleCubemap;
+        gl.useProgram(activeShaderProgram);
+        gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
+		mat4.identity(mvMatrix);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
 
     }else{
         gl.clearColor.apply(gl,[0,1,0,1]);  //green

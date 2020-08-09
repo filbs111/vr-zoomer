@@ -12,6 +12,7 @@
     <script type="text/javascript" src="lib/gl-matrix-min.js"></script>
     <script type="text/javascript" src="utils/webgl_utils.js"></script>
     <script type="text/javascript" src="utils/keys.js"></script>
+    <script type="text/javascript" src="data/sphere.js"></script>
     <script type="text/javascript" src="data/levelCubeData.js"></script>
     
 
@@ -61,6 +62,32 @@
     </script>
     
     <script id="shader-fullscreen-fs" type="x-shader/x-fragment">
+        precision mediump float;
+        varying vec3 vTextureCoord;
+        uniform samplerCube uSampler;
+        
+        void main(void) {
+            gl_FragColor = textureCube(uSampler, vTextureCoord);
+        }
+    </script>
+
+
+    <script id="shader-simple-cmap-vs" type="x-shader/x-vertex">
+        uniform mat4 uMVMatrix;
+        uniform mat4 uPMatrix;
+        attribute vec3 aVertexPosition;
+        varying vec3 vTextureCoord;
+        
+        void main(void) {
+            vec3 invertedCoords = vec3(1.0,1.0,-1.0) * aVertexPosition; //todo handle this in vertex data, or change backface culling setting
+            vec4 transformedCoord = uMVMatrix * vec4(invertedCoords, 1.0);
+            gl_Position = uPMatrix * transformedCoord;
+
+            vTextureCoord = invertedCoords * vec3(-1.,-1.,1.);
+        }
+    </script>
+    
+    <script id="shader-simple-cmap-fs" type="x-shader/x-fragment">
         precision mediump float;
         varying vec3 vTextureCoord;
         uniform samplerCube uSampler;
