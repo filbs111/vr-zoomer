@@ -242,7 +242,12 @@ function drawWorldScene(camNum){
         drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
         mat4.translate(mvMatrix, moveVec);
         drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
-    }
+	}
+	
+	gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,1,1]);	//white
+	mat4.scale(mvMatrix, vec3.create([-100,-100,-100]));	//big inverted box. 
+    drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
+
 
 	var activeShaderProgram = shaderPrograms.noTex;
     gl.useProgram(activeShaderProgram);
