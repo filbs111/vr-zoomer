@@ -19,7 +19,8 @@ function init(){
 
     canvas = document.getElementById("mycanvas");
 
-    initGL();
+	initGL();
+	setupVr();
     initShaders();
     initTexture();
     initCubemapFramebuffer(cubemapView);
@@ -93,7 +94,8 @@ var bind2dTextureIfRequired = (function createBind2dTextureIfRequiredFunction(){
 
 
 var cubemapView={};
-var cubemapSize = 1024;
+//var cubemapSize = 1024;	//noticable pixellation. (unskewed cubemap)
+var cubemapSize = 2048;		//large, guess poor perf on lower end machines.
 function initCubemapFramebuffer(view){
     var framebuffers = [];
 	view.framebuffers = framebuffers;
@@ -222,13 +224,24 @@ function setPerspective(){
 	mat4.perspective(guiParams.fov, gl.viewportWidth/gl.viewportHeight, 0.005,200.0, pMatrixScreen);
 }
 
-function drawWorldScene(camNum){
+function drawWorldScene(extraViewMat, camNum){	//TODO encode rotateforface info inside extraMatrices
+
+	mat4.set(extraViewMat, mvMatrix);
+	var inversePlayerMat = mat4.create(playerCamera);	//TODO tidy up to not create a new matrix each time! cancel out inverses etc
+	mat4.inverse(inversePlayerMat);
+	mat4.multiply(mvMatrix, inversePlayerMat);
+	mat4.inverse(mvMatrix);
+
+	//version with extraViewMat = identity.
+	/*
     mat4.set(playerCamera, mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
-    rotateCameraForFace(camNum);    //cubemap cameras 0 to 5. non-cubemap camera # -1
+	rotateCameraForFace(camNum);    //cubemap cameras 0 to 5. non-cubemap camera # -1
+	mat4.inverse(mvMatrix);
+	*/
 
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	rotateCameraForFace(camNum);    //cubemap cameras 0 to 5. non-cubemap camera # -1
+	mat4.inverse(mvMatrix);
 
-    mat4.inverse(mvMatrix);
 
     var activeShaderProgram = shaderPrograms.basic;
     gl.useProgram(activeShaderProgram);
@@ -262,27 +275,53 @@ function drawWorldScene(camNum){
     gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,0,1]);	//yellow
 
 	//draw objects around "cockpit"
-	mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
+	//mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
+	mat4.set(extraViewMat, mvMatrix);	//TODO tidy up matrix mess!!
+	mat4.inverse(mvMatrix);
 	rotateCameraForFace(camNum);
-	//mat4.inverse(mvMatrix);	//??
+	mat4.inverse(mvMatrix);
+
 	mat4.translate(mvMatrix, vec3.create([0,0,-0.01]));	//straight ahead
 	drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
 
-	mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
+    gl.uniform4fv(activeShaderProgram.uniforms.uColor, [0,0,1,1]);	//blue
+
+	//mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
+	mat4.set(extraViewMat, mvMatrix);
+	mat4.inverse(mvMatrix);
 	rotateCameraForFace(camNum);
+	mat4.inverse(mvMatrix);
+
 	mat4.translate(mvMatrix, vec3.create([0.01,0,0]));		//to the left
 	drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
-
-
 }
 
+var identMat = mat4.identity();
+var leftView = mat4.create();
+var rightView = mat4.create();
+
 function drawScene(frameTime){	
-    resizecanvas();
-    iterateMechanics(frameTime);
-    requestAnimationFrame(drawScene);
+	//resizecanvas();	//removed to stop interfering with VR stuff.
+						//TODO handle window resizing
+	iterateMechanics(frameTime);
+		//TODO best place for this? doesn't matter now - uses very little resources
+	
+	//examples use same callback to draw scene for vr, non-vr
+	//TODO is it better to have different callbacks?
+	if (vrDisplay && vrDisplay.isPresenting){
+		vrDisplay.requestAnimationFrame(drawScene);
+			//get about 1 frame every 5 seconds, nothing draws!!
+	}else{
+		//console.log("requesting standard animation frame");
+		requestAnimationFrame(drawScene);
+	}
+	
     stats.end();
     stats.begin();
 
+
+if (guiParams.drawUsingCubemap){
+	//DRAW CUBEMAP
     gl.clearColor.apply(gl,[0,1,1,1]);  //cyan
     var numFacesToUpdate = 6;
     mat4.set(cmapPMatrix, pMatrix);
@@ -292,50 +331,103 @@ function drawScene(frameTime){
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
         gl.viewport(0, 0, framebuffer.width, framebuffer.height);
     //    mat4.identity(worldCamera);
-     //   rotateCameraForFace(ii);
-        drawWorldScene(ii);
-    }
+	 //   rotateCameraForFace(ii);
+    	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        drawWorldScene(identMat, ii);
+	}
+}
     
     //draw scene to screen. 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-    mat4.set(pMatrixScreen, pMatrix);
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	
+	if (vrDisplay && vrDisplay.isPresenting){
+		//console.log("requesting vr animation frame");
+		//vrDisplay.requestAnimationFrame(drawScene);
+		vrDisplay.getFrameData(frameData);
+			
+		//console.log(frameData);
+		gl.clearColor.apply(gl,[1,0,1,1]);  //purple
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    if (guiParams.drawUsingCubemap){
+		//get view matrix. zero position part to get pure rotation.
+		mat4.set( frameData.leftViewMatrix, leftView);
+		mat4.set( frameData.rightViewMatrix, rightView);
+		leftView[12]=0;		//TODO use headset position when drawing cubemap.
+		leftView[13]=0;		//for now, just use rotation part of view matrix - effectively
+		leftView[14]=0;		//infinitely distant cubemap. FWIW could be made more efficient
+		rightView[12]=0;	//by duplicating left, right views, if same rotation part (this is true for rift, perhaps for this reason)
+		rightView[13]=0;
+		rightView[14]=0;
+
+		gl.viewport(0, 0, canvas.width/2, canvas.height);
+		mat4.set(frameData.leftProjectionMatrix, pMatrix);
+		if (guiParams.drawUsingCubemap){
+			renderViewUsingCmap(leftView);
+		}else{
+			renderViewNoCmap(leftView);
+		}
+
+		gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height);
+		mat4.set(frameData.rightProjectionMatrix, pMatrix);
+		if (guiParams.drawUsingCubemap){
+			renderViewUsingCmap(rightView);
+		}else{
+			renderViewNoCmap(rightView);
+		}
+
+		vrDisplay.submitFrame();
+
+	}else{
+		gl.viewport(0, 0, canvas.width, canvas.height);
+		mat4.set(pMatrixScreen, pMatrix);
+
+		if (guiParams.drawUsingCubemap){
+
+			//various ways to do this. some maybe more efficient than others
+			//1. fullscreen quad, per vertex projection. should be simple for undistorted. 
+
+			/*
+			var activeShaderProgram = shaderPrograms.fullscreenTextured;
+			gl.useProgram(activeShaderProgram);
+			gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
+
+			drawObjectFromBuffers(fsBuffers, activeShaderProgram);
+			*/
+
+			//2. simple projection on a sphere. should be easy maths, can do in vertex shader.
+			renderViewUsingCmap(identMat, true);
+		}else{
+			gl.clearColor.apply(gl,[0,1,0,1]);  //green
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+			renderViewNoCmap(identMat);
+		}
+	}
+
+	function renderViewUsingCmap(extraViewMat, doSidelook){	//TODO pass in sidelook via extraViewMat
 		gl.clearColor.apply(gl,[0,0,1,1]);  //blue
 
-        //various ways to do this. some maybe more efficient than others
-        //1. fullscreen quad, per vertex projection. should be simple for undistorted. 
-
-		/*
-        var activeShaderProgram = shaderPrograms.fullscreenTextured;
-        gl.useProgram(activeShaderProgram);
-        gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
-
-        drawObjectFromBuffers(fsBuffers, activeShaderProgram);
-		*/
-
-        //2. simple projection on a sphere. should be easy maths, can do in vertex shader.
 		var activeShaderProgram = shaderPrograms.simpleCubemap;
-        gl.useProgram(activeShaderProgram);
-        gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
+		gl.useProgram(activeShaderProgram);
+		gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
 		mat4.identity(mvMatrix);
 		
-		mat4.rotate(mvMatrix,  guiParams.sideLook, vec3.create([0,1,0]));
-
+		mat4.multiply(mvMatrix, extraViewMat);	//??
+		if (doSidelook){
+			mat4.rotate(mvMatrix,  guiParams.sideLook, vec3.create([0,1,0]));
+		}
 		//simple translation by -1 gets stereographic angle preserving projection on screen
 		//however, want to get view that's angle preserving when viewed at the set pMatrix FOV. to do this, scale view.
 		var scaleFactor = 1/Math.sqrt(1-guiParams.viewShiftZ*guiParams.viewShiftZ);
 		mat4.scale(mvMatrix, vec3.create([1,1,scaleFactor]));
 
 		mat4.translate(mvMatrix, vec3.create([0,0,guiParams.viewShiftZ]));
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
+		drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
+	}
 
-    }else{
-        gl.clearColor.apply(gl,[0,1,0,1]);  //green
-        drawWorldScene(-1);
-    }
+	function renderViewNoCmap(extraViewMat){
+	//	drawWorldScene(-1);
+		drawWorldScene(extraViewMat, -1);		
+	}
 }
 
 function rotateCameraForFace(ii){
@@ -369,7 +461,7 @@ function rotateCameraForFace(ii){
 
 //TODO ui controls
 var guiParams = {
-	fov:40,	//vertical fov. 40deg = -20 to +20.
+	fov:40,	//vertical fov. 40deg = -20 to +20	.
 	drawUsingCubemap:true,
 	viewShiftZ:0,
 	sideLook:0
@@ -407,8 +499,6 @@ var iterateMechanics = (function iterateMechanics(){
 			stepSpeed();
         }
         
-        //console.log("steps : " + numSteps);
-
         function stepSpeed(){	//TODO make all movement stuff fixed timestep (eg changing position by speed)
 	
 			currentThrustInput[0]=keyThing.keystate(65)-keyThing.keystate(68);	//lateral
@@ -514,3 +604,85 @@ var enableDisableAttributes = (function generateEnableDisableAttributesFunc(){
 		});
 	};
 })();
+
+var vrDisplay = null;
+
+var frameData;
+function setupVr(){
+	
+	if (!navigator.getVRDisplays) {
+		console.log("no vr support");
+		return;
+	}
+	frameData = new VRFrameData();
+
+	var myvrbutton = document.getElementById("vrbutton");
+	myvrbutton.addEventListener('click', (evt) => {
+		console.log("button was clicked");
+		onVRRequestPresent();
+	})
+	
+	function onVRRequestPresent(){
+		vrDisplay.requestPresent([{ source:canvas }]).then( () => {
+			console.log("requestPresent promise fulfilled.");
+			onResize();
+        }, (err) => {
+          console.log("requestPresent promise rejected..");
+          if (err && err.message) {
+            console.log(err.message);
+          }
+        });
+	}
+
+	function onVRExitPresent() {
+        if (!vrDisplay.isPresenting)
+          return;
+
+        vrDisplay.exitPresent().then( () => {
+			console.log("exitPresent promise fulfilled");
+			onResize();
+        }, (err) => {
+			console.log("exitPresent promise rejected");
+			if (err && err.message) {
+			  console.log(err.message);
+			}
+        });
+	}
+	
+	function onResize() {
+		var newWidth, newHeight;
+        if (vrDisplay && vrDisplay.isPresenting) {
+		  console.log("resizing, display presenting.");
+
+          var leftEye = vrDisplay.getEyeParameters("left");
+		  var rightEye = vrDisplay.getEyeParameters("right");
+		  newWidth = Math.max(leftEye.renderWidth, rightEye.renderWidth) * 2;
+		  newHeight = Math.max(leftEye.renderHeight, rightEye.renderHeight);
+		  console.log({leftEye, rightEye});
+
+          canvas.width = Math.max(leftEye.renderWidth, rightEye.renderWidth) * 2;
+          canvas.height = Math.max(leftEye.renderHeight, rightEye.renderHeight);
+        } else {
+		  console.log("resizing. no vr display, or vr display not presenting.");
+
+		  newWidth =  webglCanvas.offsetWidth * window.devicePixelRatio;
+          newHeight = webglCanvas.offsetHeight * window.devicePixelRatio;
+		}
+		console.log({newHeight, newWidth});
+		canvas.height = newHeight;
+		canvas.width = newWidth;
+	}
+
+	navigator.getVRDisplays().then(function (displays) {
+		if (displays.length > 0) {
+			console.log("vr displays detected: ", displays);
+			//hope that only one vr display! TODO how to handle multiple? dropdown list?
+
+			vrDisplay = displays[displays.length-1];
+				//copied from webvr examples. if one, could just as well use displays[0]
+			console.log("selected display: ", vrDisplay);
+		}else{
+			console.log("zero vr displays");
+		}
+	});
+}
