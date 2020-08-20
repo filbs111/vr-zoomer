@@ -52,7 +52,8 @@ function init(){
 
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
-
+	gui.add(guiParams, "drawCircles");
+	
     canvas = document.getElementById("mycanvas");
 
 	initGL();
@@ -370,6 +371,8 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [miniBoxScale,miniBoxScale,miniBoxScale]);
     gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,0,1]);	//yellow
 
+	if (!guiParams.drawCircles){return;}	//save a lot of draw calls.
+
 	//draw objects around "cockpit"
 	//mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
 	mat4.set(extraViewMat, mvMatrix);	//TODO tidy up matrix mess!!
@@ -592,7 +595,8 @@ var guiParams = {
 	viewShiftZAngle:0,
 	centreZoom:1,
 	sideLook:0,
-	stereoSeparation:0.01
+	stereoSeparation:0.01,
+	drawCircles:true
 }
 
 var iterateMechanics = (function iterateMechanics(){
