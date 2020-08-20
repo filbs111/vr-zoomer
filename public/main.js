@@ -225,16 +225,20 @@ function setPerspective(){
 	mat4.perspective(guiParams.fov, gl.viewportWidth/gl.viewportHeight, 0.005,200.0, pMatrixScreen);
 }
 
-function drawWorldScene(extraViewMat, camNum, positionShift){	//TODO encode rotateforface info inside extraMatrices
+function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	//TODO encode rotateforface info inside extraMatrices
 
 	mat4.identity(mvMatrix);
 	mat4.translate(mvMatrix, vec3.create([positionShift,0,0]));
 	
 	mat4.multiply(mvMatrix, extraViewMat);
+
+	
+	
 	//mat4.set(extraViewMat, mvMatrix);
 	var inversePlayerMat = mat4.create(playerCamera);	//TODO tidy up to not create a new matrix each time! cancel out inverses etc
 	mat4.inverse(inversePlayerMat);
-	mat4.multiply(mvMatrix, inversePlayerMat);
+
+	mat4.multiply(mvMatrix, inversePlayerMat);	
 	mat4.inverse(mvMatrix);
 
 	//version with extraViewMat = identity.
@@ -244,9 +248,13 @@ function drawWorldScene(extraViewMat, camNum, positionShift){	//TODO encode rota
 	mat4.inverse(mvMatrix);
 	*/
 
-	rotateCameraForFace(camNum);    //cubemap cameras 0 to 5. non-cubemap camera # -1
-	mat4.inverse(mvMatrix);
+	if (vecPositionShift){
+		mat4.translate(mvMatrix, vec3.create(vecPositionShift));
+	}
 
+	rotateCameraForFace(camNum);    //cubemap cameras 0 to 5. non-cubemap camera # -1
+
+	mat4.inverse(mvMatrix);
 
     var activeShaderProgram = shaderPrograms.basic;
     gl.useProgram(activeShaderProgram);
@@ -313,9 +321,29 @@ function drawScene(frameTime){
 	
 	//examples use same callback to draw scene for vr, non-vr
 	//TODO is it better to have different callbacks?
+
+	var vecEyeSeparation=[0,0,0];	//default. overwrite if VR.
+	var vecEyeSeparation2=[0,0,0];
+
 	if (vrDisplay && vrDisplay.isPresenting){
 		vrDisplay.requestAnimationFrame(drawScene);
-			//get about 1 frame every 5 seconds, nothing draws!!
+		
+
+		vrDisplay.getFrameData(frameData);
+		gl.clearColor.apply(gl,[1,0,1,1]);  //purple
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		//get view matrix. zero position part to get pure rotation.
+		mat4.set( frameData.leftViewMatrix, leftView);
+		mat4.set( frameData.rightViewMatrix, rightView);
+
+		vecEyeSeparation[0] = leftView[0];	//want sideways pointing vector.
+		vecEyeSeparation[1] = leftView[4];
+		vecEyeSeparation[2] = leftView[8];
+
+		//set length to stereo separation.
+		var factor = guiParams.stereoSeparation / Math.hypot.apply(null, vecEyeSeparation);
+		vecEyeSeparation = vecEyeSeparation.map(x=>-x*factor);
+		vecEyeSeparation2 = vecEyeSeparation.map(x=>-x);
 	}else{
 		//console.log("requesting standard animation frame");
 		requestAnimationFrame(drawScene);
@@ -326,6 +354,10 @@ function drawScene(frameTime){
 
 
 if (guiParams.drawUsingCubemap){
+	updateCubemap(vecEyeSeparation);
+}
+
+function updateCubemap(vecEyeSeparation){
 	//DRAW CUBEMAP
     gl.clearColor.apply(gl,[0,1,1,1]);  //cyan
     var numFacesToUpdate = 6;
@@ -338,25 +370,14 @@ if (guiParams.drawUsingCubemap){
     //    mat4.identity(worldCamera);
 	 //   rotateCameraForFace(ii);
     	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        drawWorldScene(identMat, ii, 0);
+        drawWorldScene(identMat, ii, 0, vecEyeSeparation);
 	}
+	//draw scene to screen. 
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
     
-    //draw scene to screen. 
-	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-	
 	if (vrDisplay && vrDisplay.isPresenting){
-		//console.log("requesting vr animation frame");
-		//vrDisplay.requestAnimationFrame(drawScene);
-		vrDisplay.getFrameData(frameData);
-			
-		//console.log(frameData);
-		gl.clearColor.apply(gl,[1,0,1,1]);  //purple
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-		//get view matrix. zero position part to get pure rotation.
-		mat4.set( frameData.leftViewMatrix, leftView);
-		mat4.set( frameData.rightViewMatrix, rightView);
+		
 		leftView[12]=0;		//TODO use headset position when drawing cubemap.
 		leftView[13]=0;		//for now, just use rotation part of view matrix - effectively
 		leftView[14]=0;		//infinitely distant cubemap. FWIW could be made more efficient
@@ -370,6 +391,10 @@ if (guiParams.drawUsingCubemap){
 			renderViewUsingCmap(leftView);
 		}else{
 			renderViewNoCmap(leftView, guiParams.stereoSeparation);
+		}
+
+		if (guiParams.drawUsingCubemap && guiParams.stereoSeparation!=0){
+			updateCubemap(vecEyeSeparation2);
 		}
 
 		gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height);
