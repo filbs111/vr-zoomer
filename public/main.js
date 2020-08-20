@@ -12,19 +12,22 @@ function init(){
 	document.body.appendChild( stats.dom );
 
 	var gui = new dat.GUI();
+	var guiControllers = {};
 	gui.add(guiParams, "fov", 10,150,5).onChange(setPerspective);
 	gui.add(guiParams, "drawUsingCubemap");
-	gui.add(guiParams, "viewShiftZ", -0.99,0.99,0.01).onChange((val)=>{
-		console.log("viewShiftZ changed to : " + val);
-
+	guiControllers.viewShiftZ = gui.add(guiParams, "viewShiftZ", -0.99,0.99,0.01);
+	guiControllers.centreZoom = gui.add(guiParams, "centreZoom", 0,15,0.01);	//TODO log scale? does dat gui support?
+	guiControllers.viewShiftZ.onChange((val)=>{
 		//calculate effective zoom at centre. distance from centre side of sphere = 1-viewShiftZ,
 		// scale of sphere : 1/Math.sqrt(1-guiParams.viewShiftZ*guiParams.viewShiftZ);
-		// total zoom something like this: 
-		//console.log("centre zoom: " + (Math.sqrt(1-val*val)/(1-val)));
-		console.log("centre zoom: " + (Math.sqrt((1+val)/(1-val))));	//simplified, because 
-			// sqrt( (1-val) * (1+val) ) / (1-val) = sqrt( (1+val)/(1-val) 
+		// total expect is Math.sqrt(1-val*val)/(1-val))
+		var centreZoom = (Math.sqrt((1+val)/(1-val)))	// sqrt( (1-val) * (1+val) ) / (1-val) = sqrt( (1+val)/(1-val) 
+		guiControllers.centreZoom.setValue(centreZoom);
 	});
-	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians
+	guiControllers.centreZoom.domElement.style.pointerEvents = "none";	//disable direct modification of centre zoom.  
+	guiControllers.centreZoom.domElement.style.opacity = .5;			//TODO enable, affect viewShiftZ. beware update cycle loop!
+
+	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
 
     canvas = document.getElementById("mycanvas");
@@ -510,6 +513,7 @@ var guiParams = {
 	fov:40,	//vertical fov. 40deg = -20 to +20	.
 	drawUsingCubemap:true,
 	viewShiftZ:0,
+	centreZoom:1,
 	sideLook:0,
 	stereoSeparation:0.01
 }
