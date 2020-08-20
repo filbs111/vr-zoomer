@@ -14,7 +14,16 @@ function init(){
 	var gui = new dat.GUI();
 	gui.add(guiParams, "fov", 10,150,5).onChange(setPerspective);
 	gui.add(guiParams, "drawUsingCubemap");
-	gui.add(guiParams, "viewShiftZ", -1,1,0.02);
+	gui.add(guiParams, "viewShiftZ", -0.99,0.99,0.01).onChange((val)=>{
+		console.log("viewShiftZ changed to : " + val);
+
+		//calculate effective zoom at centre. distance from centre side of sphere = 1-viewShiftZ,
+		// scale of sphere : 1/Math.sqrt(1-guiParams.viewShiftZ*guiParams.viewShiftZ);
+		// total zoom something like this: 
+		//console.log("centre zoom: " + (Math.sqrt(1-val*val)/(1-val)));
+		console.log("centre zoom: " + (Math.sqrt((1+val)/(1-val))));	//simplified, because 
+			// sqrt( (1-val) * (1+val) ) / (1-val) = sqrt( (1+val)/(1-val) 
+	});
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
 
