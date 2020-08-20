@@ -58,14 +58,61 @@ function completeShaders(){
 }
 
 var texture;
+var textTexture;
+var canvasTexture;
 function initTexture(){
-    texture = makeTexture("img/0033.jpg");
+//	texture = makeTexture("img/0033.jpg");
+	
+	canvasTexture = (function(textureSize){
+		var textCanvas = document.createElement("canvas");
+		textCanvas.width = textureSize;
+		textCanvas.height = textureSize;
+		var canvasctx = textCanvas.getContext("2d");
+		canvasctx.font = "60px Arial";
+		
+		//append to body to check (TODO disable this)
+		document.getElementById("tmpdiv").appendChild(textCanvas);
+	
+		var texture = makePlaceholderTexture();
+		var updateTexture = function(testString){
+			canvasctx.fillStyle = "#3ff";
+			canvasctx.fillRect(0,0,textureSize, textureSize);
+			canvasctx.fillStyle = "red";
+			canvasctx.fillText(testString, 10, 50);
+
+			bind2dTextureIfRequired(texture);
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);	//TODO do these carry over with updates?
+			gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);	//TODO use mipmaps?
+			bind2dTextureIfRequired(null);	//AFAIK this is just good practice to unwanted side effect bugs
+		}		
+	
+		return {
+			texture,
+			updateTexture
+		};
+		//test dynamic update in console by canvasTexture.updateTexture("something")
+	
+	})(512);
+
+	texture = canvasTexture.texture;
+	canvasTexture.updateTexture("hello world");
+}
+
+
+function makePlaceholderTexture(){
+	var texture = gl.createTexture();
+	bind2dTextureIfRequired(texture);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+		new Uint8Array([255, 0, 255, 255])); // magenta. should be obvious when tex not loaded.
+	return texture;
 }
 
 function makeTexture(src, yFlip = true) {	//to do OO
-	var texture = gl.createTexture();
+	var texture = makePlaceholderTexture();
 		
-	bind2dTextureIfRequired(texture);
 	//dummy 1 pixel image to avoid error logs. https://stackoverflow.com/questions/21954036/dartweb-gl-render-warning-texture-bound-to-texture-unit-0-is-not-renderable
 		//(TODO better to wait for load, or use single shared 1pix texture (bind2dTextureIfRequired to check that texture loaded, by flag on texture? if not loaded, bind the shared summy image?
 		//TODO progressive detail load?
