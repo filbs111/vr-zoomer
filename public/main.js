@@ -481,7 +481,7 @@ var iterateMechanics = (function iterateMechanics(){
 	var timeStepMultiplier = timeStep/10;	//because stepSpeed initially tuned for timeStep=10;
     var angVelDampMultiplier=Math.pow(0.85, timeStep/10);
 
-    var thrust = 0.001*timeStep;	//TODO make keyboard/gamepad fair! currently thrust, moveSpeed config independent!
+    var thrust = 0.01*timeStep;	//TODO make keyboard/gamepad fair! currently thrust, moveSpeed config independent!
 
     var currentThrustInput = [0,0,0];
     var currentRotateInput=[];
@@ -514,15 +514,20 @@ var iterateMechanics = (function iterateMechanics(){
 
             for (var cc=0;cc<3;cc++){
 				playerAngVelVec[cc]+= timeStepMultiplier*currentRotateInput[cc];
-				playerVelVec[cc]+=currentThrustInput[cc];	//todo either write vector addition func or use glmatrix vectors
+			//	playerVelVec[cc]+=currentThrustInput[cc];	//todo either write vector addition func or use glmatrix vectors
+
+				for (var kk=0;kk<3;kk++){
+					playerVelVec[cc]+=playerCamera[cc + 4*kk]*currentThrustInput[kk];
+				}
             }
             
             playerAngVelVec=scalarvectorprod(angVelDampMultiplier,playerAngVelVec);
 
-            //TODO speed drag
 
-            rotatePlayer(scalarvectorprod(timeStep * rotateSpeed,playerAngVelVec));
-			movePlayer(scalarvectorprod(timeStep * moveSpeed,playerVelVec));    //note currently momentum is conserved in frame of player (behaves "on rails")
+			rotatePlayer(scalarvectorprod(timeStep * rotateSpeed,playerAngVelVec));
+			
+			playerVelVec = scalarvectorprod(0.997,playerVelVec);	//drag
+			movePlayer(scalarvectorprod(timeStep * moveSpeed,playerVelVec)); 
         }
     }
 
@@ -535,8 +540,10 @@ function rotatePlayer(vec){
         //glMatrix rotate seems inefficient. is there an option where pass in vector instead of the vector and its length?
 }
 
-function movePlayer(vec){
-    mat4.translate(playerCamera, vec3.create(vec));
+function movePlayer(toMove){
+	playerCamera[12]+=toMove[0];
+	playerCamera[13]+=toMove[1];
+	playerCamera[14]+=toMove[2];
 }
 
 //borrowed from 3sphere-explorer matfuncs.js
