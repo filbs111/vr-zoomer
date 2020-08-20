@@ -524,7 +524,13 @@ var iterateMechanics = (function iterateMechanics(){
     var currentThrustInput = [0,0,0];
     var currentRotateInput=[];
 
+	//gamepad
+	var activeGp;
+
     return function(frameTime){
+
+		activeGp=getGamepad();
+
         var nowTime = Date.now();
 		var timeElapsed = Math.min(nowTime - lastTime, 50);	//ms. 50ms -> slowdown if drop below 20fps 
 		//console.log("time elapsed: " + timeElapsed);
@@ -548,7 +554,46 @@ var iterateMechanics = (function iterateMechanics(){
 			currentRotateInput[0]=keyThing.keystate(40)-keyThing.keystate(38); //pitch
 			currentRotateInput[1]=keyThing.keystate(39)-keyThing.keystate(37); //turn
             currentRotateInput[2]=keyThing.keystate(69)-keyThing.keystate(81); //roll
-            
+			
+
+			if (activeGp){
+				//TODO move calculation of total input from keys/gamepad outside this loop
+				//if (gpSettings.moveEnabled){
+					var gpMove=[];
+					var axes = activeGp.axes;
+					var buttons = activeGp.buttons;
+					
+					gpMove[0] = Math.abs(axes[0])>gpSettings.deadZone ? -moveSpeed*axes[0] : 0; //lateral
+					gpMove[1] = Math.abs(axes[1])>gpSettings.deadZone ? moveSpeed*axes[1] : 0; //vertical
+					gpMove[2] = moveSpeed*(buttons[7].value-activeGp.buttons[6].value); //fwd/back	//note Firefox at least fails to support analog triggers https://bugzilla.mozilla.org/show_bug.cgi?id=1434408
+					
+					var magsq = gpMove.reduce(function(total, val){return total+ val*val;}, 0);
+					gpMove = scalarvectorprod(20000000000*magsq,gpMove);	//TODO consistent speed with keyboard controls
+					
+					currentThrustInput = currentThrustInput.map(function(elem,idx){return elem-gpMove[idx];});
+					
+					//testInfo=[axes,buttons,gpMove,magsq];
+					
+					//note doing cube bodge to both thrust and to adding velocity to position (see key controls code)
+					//maybe better to pick one! (probably should apply cube logic to acc'n for exponential smoothed binary key input, do something "realistic" for drag forces
+				//}
+				
+				currentRotateInput[2]+=gpSettings.roll(activeGp); //roll
+				
+				//other rotation
+				var gpRotate=[];
+				var fixedRotateAmount = 10*rotateSpeed;
+				gpRotate[0] = Math.abs(axes[gpSettings.pitchAxis])>gpSettings.deadZone ? fixedRotateAmount*gpSettings.pitchMultiplier*axes[gpSettings.pitchAxis] : 0; //pitch
+				gpRotate[1] = Math.abs(axes[gpSettings.turnAxis])>gpSettings.deadZone ? fixedRotateAmount*gpSettings.turnMultiplier*axes[gpSettings.turnAxis] : 0; //turn
+				gpRotate[2] = 0;	//moved to code above
+					
+				magsq = gpRotate.reduce(function(total, val){return total+ val*val;}, 0);
+				var magpow = Math.pow(50*magsq,1.5);	//TODO handle fact that max values separately maxed out, so currently turns faster in diagonal direction.
+				
+				lastPlayerAngMove = scalarvectorprod(100000*magpow*timeStepMultiplier,gpRotate);
+				rotatePlayer(lastPlayerAngMove);	//TODO add rotational momentum - not direct rotate
+			}
+
 
             for (var cc=0;cc<3;cc++){
 				playerAngVelVec[cc]+= timeStepMultiplier*currentRotateInput[cc];
