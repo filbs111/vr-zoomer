@@ -15,17 +15,28 @@ function init(){
 	var guiControllers = {};
 	gui.add(guiParams, "fov", 10,150,5).onChange(setPerspective);
 	gui.add(guiParams, "drawUsingCubemap");
-	guiControllers.viewShiftZ = gui.add(guiParams, "viewShiftZ", -0.99,0.99,0.01);
-	guiControllers.centreZoom = gui.add(guiParams, "centreZoom", 0,15,0.01);	//TODO log scale? does dat gui support?
-	guiControllers.viewShiftZ.onChange((val)=>{
+	var viewShiftZPrecision = 0.01;
+	var centreZoomPrecision = 0.01;
+	guiControllers.viewShiftZ = gui.add(guiParams, "viewShiftZ", -0.99,0.99,viewShiftZPrecision);
+	guiControllers.centreZoom = gui.add(guiParams, "centreZoom", 0,15,centreZoomPrecision);	//TODO log scale? does dat gui support?
+	guiControllers.viewShiftZ.onChange(val=>{
+		console.log("inside viewShiftZ onchange");
 		//calculate effective zoom at centre. distance from centre side of sphere = 1-viewShiftZ,
 		// scale of sphere : 1/Math.sqrt(1-guiParams.viewShiftZ*guiParams.viewShiftZ);
 		// total expect is Math.sqrt(1-val*val)/(1-val))
-		var centreZoom = (Math.sqrt((1+val)/(1-val)))	// sqrt( (1-val) * (1+val) ) / (1-val) = sqrt( (1+val)/(1-val) 
-		guiControllers.centreZoom.setValue(centreZoom);
+		var centreZoom = (Math.sqrt((1+val)/(1-val)))	// sqrt( (1-val) * (1+val) ) / (1-val) = sqrt( (1+val)/(1-val)
+		if (Math.abs(centreZoom - guiParams.centreZoom) > centreZoomPrecision){
+			guiControllers.centreZoom.setValue(centreZoom);
+		}
 	});
-	guiControllers.centreZoom.domElement.style.pointerEvents = "none";	//disable direct modification of centre zoom.  
-	guiControllers.centreZoom.domElement.style.opacity = .5;			//TODO enable, affect viewShiftZ. beware update cycle loop!
+	guiControllers.centreZoom.onChange(val=>{
+		//console.log("inside centreZoom onchange");
+		var centreZoomSq = val*val;
+		var viewShiftZ = (centreZoomSq-1)/(centreZoomSq+1);
+		if (Math.abs(viewShiftZ - guiParams.viewShiftZ) > viewShiftZPrecision){
+			guiControllers.viewShiftZ.setValue(viewShiftZ);
+		}
+	});
 
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
