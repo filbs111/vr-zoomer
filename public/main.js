@@ -478,8 +478,8 @@ var iterateMechanics = (function iterateMechanics(){
 
     var timeTracker =0;
 	var timeStep = 2;	//2ms => 500 steps/s! this is small to prevent tunelling. TODO better collision system that does not require this!
-	var timeStepMultiplier = timeStep/10;	//because stepSpeed initially tuned for timeStep=10;
-    var angVelDampMultiplier=Math.pow(0.85, timeStep/10);
+	var timeStepMultiplier = timeStep/50;	//because stepSpeed initially tuned for timeStep=10;
+    var angVelDampMultiplier=Math.pow(0.9, timeStep/10);
 
     var thrust = 0.01*timeStep;	//TODO make keyboard/gamepad fair! currently thrust, moveSpeed config independent!
 
