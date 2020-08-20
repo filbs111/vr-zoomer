@@ -15,18 +15,30 @@ function init(){
 	var guiControllers = {};
 	gui.add(guiParams, "fov", 10,150,5).onChange(setPerspective);
 	gui.add(guiParams, "drawUsingCubemap");
-	var viewShiftZPrecision = 0.01;
+	var viewShiftZPrecision = 0.001;
+	var viewShiftZAnglePrecision = 0.001;
 	var centreZoomPrecision = 0.01;
-	guiControllers.viewShiftZ = gui.add(guiParams, "viewShiftZ", -0.99,0.99,viewShiftZPrecision);
+	guiControllers.viewShiftZ = gui.add(guiParams, "viewShiftZ", -0.998,0.998,viewShiftZPrecision);	//TODO angle scale? asin(viewShiftZ) ?
+	guiControllers.viewShiftZAngle = gui.add(guiParams, "viewShiftZAngle", -Math.PI/2,Math.PI/2,viewShiftZAnglePrecision);	//asin(viewShiftZ) ?
 	guiControllers.centreZoom = gui.add(guiParams, "centreZoom", 0,15,centreZoomPrecision);	//TODO log scale? does dat gui support?
 	guiControllers.viewShiftZ.onChange(val=>{
-		console.log("inside viewShiftZ onchange");
+		//console.log("inside viewShiftZ onchange");
 		//calculate effective zoom at centre. distance from centre side of sphere = 1-viewShiftZ,
 		// scale of sphere : 1/Math.sqrt(1-guiParams.viewShiftZ*guiParams.viewShiftZ);
 		// total expect is Math.sqrt(1-val*val)/(1-val))
 		var centreZoom = (Math.sqrt((1+val)/(1-val)))	// sqrt( (1-val) * (1+val) ) / (1-val) = sqrt( (1+val)/(1-val)
 		if (Math.abs(centreZoom - guiParams.centreZoom) > centreZoomPrecision){
 			guiControllers.centreZoom.setValue(centreZoom);
+		}
+		var viewShiftZAngle = Math.asin(val);
+		if (Math.abs(viewShiftZAngle - guiParams.viewShiftZAngle) > viewShiftZAnglePrecision){
+			guiControllers.viewShiftZAngle.setValue(viewShiftZAngle);
+		}
+	});
+	guiControllers.viewShiftZAngle.onChange(val=>{
+		var viewShiftZ = Math.sin(val);
+		if (Math.abs(viewShiftZ - guiParams.viewShiftZ) > viewShiftZPrecision){
+			guiControllers.viewShiftZ.setValue(viewShiftZ);
 		}
 	});
 	guiControllers.centreZoom.onChange(val=>{
@@ -577,6 +589,7 @@ var guiParams = {
 	fov:40,	//vertical fov. 40deg = -20 to +20	.
 	drawUsingCubemap:true,
 	viewShiftZ:0,
+	viewShiftZAngle:0,
 	centreZoom:1,
 	sideLook:0,
 	stereoSeparation:0.01
