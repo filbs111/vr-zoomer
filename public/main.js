@@ -167,8 +167,9 @@ var sphereBuffersHiRes={};
 function initBuffers(){
     loadBufferData(fsBuffers, fsData);
 	loadBufferData(cubeBuffers, levelCubeData);
-	loadBufferData(sphereBuffers, makeSphereData(16,32,1));
-	loadBufferData(sphereBuffersHiRes, makeSphereData(127,255,1)); //near index limit 65536.
+	loadBufferData(sphereBuffers, makeSphereData(8,16,1));
+	//loadBufferData(sphereBuffersHiRes, makeSphereData(127,255,1)); //near index limit 65536.
+	loadBufferData(sphereBuffersHiRes, makeSphereData(64,128,1));
 
     function loadBufferData(bufferObj, sourceData){
 		bufferObj.vertexPositionBuffer = gl.createBuffer();
@@ -299,14 +300,17 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 
     gl.uniform4fv(activeShaderProgram.uniforms.uColor, [0,0,1,1]);	//blue
 
-	//mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
-	mat4.set(extraViewMat, mvMatrix);
-	mat4.inverse(mvMatrix);
-	rotateCameraForFace(camNum);
-	mat4.inverse(mvMatrix);
+	for (var ang=0;ang<360;ang+=10){
+		//mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
+		mat4.set(extraViewMat, mvMatrix);
+		mat4.inverse(mvMatrix);
+		rotateCameraForFace(camNum);
+		mat4.inverse(mvMatrix);
 
-	mat4.translate(mvMatrix, vec3.create([0.01,0,0]));		//to the left
-	drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
+		var rads = ang*Math.PI/180;
+		mat4.translate(mvMatrix, vec3.create([0.01*Math.cos(rads),0.01*Math.sin(rads),0]));		//to the side
+		drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
+	}
 }
 
 var identMat = mat4.identity();
