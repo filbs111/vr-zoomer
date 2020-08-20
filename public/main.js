@@ -16,6 +16,7 @@ function init(){
 	gui.add(guiParams, "drawUsingCubemap");
 	gui.add(guiParams, "viewShiftZ", -1,1,0.02);
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians
+	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
 
     canvas = document.getElementById("mycanvas");
 
@@ -224,9 +225,13 @@ function setPerspective(){
 	mat4.perspective(guiParams.fov, gl.viewportWidth/gl.viewportHeight, 0.005,200.0, pMatrixScreen);
 }
 
-function drawWorldScene(extraViewMat, camNum){	//TODO encode rotateforface info inside extraMatrices
+function drawWorldScene(extraViewMat, camNum, positionShift){	//TODO encode rotateforface info inside extraMatrices
 
-	mat4.set(extraViewMat, mvMatrix);
+	mat4.identity(mvMatrix);
+	mat4.translate(mvMatrix, vec3.create([positionShift,0,0]));
+	
+	mat4.multiply(mvMatrix, extraViewMat);
+	//mat4.set(extraViewMat, mvMatrix);
 	var inversePlayerMat = mat4.create(playerCamera);	//TODO tidy up to not create a new matrix each time! cancel out inverses etc
 	mat4.inverse(inversePlayerMat);
 	mat4.multiply(mvMatrix, inversePlayerMat);
@@ -333,7 +338,7 @@ if (guiParams.drawUsingCubemap){
     //    mat4.identity(worldCamera);
 	 //   rotateCameraForFace(ii);
     	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        drawWorldScene(identMat, ii);
+        drawWorldScene(identMat, ii, 0);
 	}
 }
     
@@ -364,7 +369,7 @@ if (guiParams.drawUsingCubemap){
 		if (guiParams.drawUsingCubemap){
 			renderViewUsingCmap(leftView);
 		}else{
-			renderViewNoCmap(leftView);
+			renderViewNoCmap(leftView, guiParams.stereoSeparation);
 		}
 
 		gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height);
@@ -372,7 +377,7 @@ if (guiParams.drawUsingCubemap){
 		if (guiParams.drawUsingCubemap){
 			renderViewUsingCmap(rightView);
 		}else{
-			renderViewNoCmap(rightView);
+			renderViewNoCmap(rightView, -guiParams.stereoSeparation);
 		}
 
 		vrDisplay.submitFrame();
@@ -399,7 +404,7 @@ if (guiParams.drawUsingCubemap){
 		}else{
 			gl.clearColor.apply(gl,[0,1,0,1]);  //green
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-			renderViewNoCmap(identMat);
+			renderViewNoCmap(identMat, 0);
 		}
 	}
 
@@ -424,9 +429,12 @@ if (guiParams.drawUsingCubemap){
 		drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
 	}
 
-	function renderViewNoCmap(extraViewMat){
+	function renderViewNoCmap(extraViewMat, positionShift){
+						//positionShift - used for stereo separation. could/should use full extraViewMat (rather than just extracting rotation part),
+						// but want, for now, to not move centre of view. 
+
 	//	drawWorldScene(-1);
-		drawWorldScene(extraViewMat, -1);		
+		drawWorldScene(extraViewMat, -1, positionShift);		
 	}
 }
 
@@ -464,7 +472,8 @@ var guiParams = {
 	fov:40,	//vertical fov. 40deg = -20 to +20	.
 	drawUsingCubemap:true,
 	viewShiftZ:0,
-	sideLook:0
+	sideLook:0,
+	stereoSeparation:0.01
 }
 
 var iterateMechanics = (function iterateMechanics(){
