@@ -357,18 +357,24 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	mat4.translate(mvMatrix, vec3.create([0,0,-0.01]));	//straight ahead
 	drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
 
-    gl.uniform4fv(activeShaderProgram.uniforms.uColor, [0,0,1,1]);	//blue
+	drawBallRing([0,0,1,1], 10, 0.01, 0);			//blue, splitting front, back
+	drawBallRing([1,0.5,0,1], 20, 0.007, 0.007);	//orange, 45 deg in front
+	drawBallRing([1,0.5,0,1], 20, 0.007, -0.007);	//orange, 45 deg behind
 
-	for (var ang=0;ang<360;ang+=10){
-		//mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
-		mat4.set(extraViewMat, mvMatrix);
-		mat4.inverse(mvMatrix);
-		rotateCameraForFace(camNum);
-		mat4.inverse(mvMatrix);
+	function drawBallRing(color, angstep, side, front){
+		gl.uniform4fv(activeShaderProgram.uniforms.uColor, color);
+		
+		for (var ang=0;ang<360;ang+=angstep){
+			//mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
+			mat4.set(extraViewMat, mvMatrix);
+			mat4.inverse(mvMatrix);
+			rotateCameraForFace(camNum);
+			mat4.inverse(mvMatrix);
 
-		var rads = ang*Math.PI/180;
-		mat4.translate(mvMatrix, vec3.create([0.01*Math.cos(rads),0.01*Math.sin(rads),0]));		//to the side
-		drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
+			var rads = ang*Math.PI/180;
+			mat4.translate(mvMatrix, vec3.create([side*Math.cos(rads),side*Math.sin(rads),-front]));
+			drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
+		}
 	}
 }
 
