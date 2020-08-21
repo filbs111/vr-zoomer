@@ -655,12 +655,12 @@ var iterateMechanics = (function iterateMechanics(){
 			currentRotateInput[1]=keyThing.keystate(39)-keyThing.keystate(37); //turn
             currentRotateInput[2]=keyThing.keystate(69)-keyThing.keystate(81); //roll
 			
-
+			var viewScaleMultiplierTarget;
 			if (activeGp){
-					viewScaleMultiplier = Math.pow(4,  activeGp.buttons[0].value - activeGp.buttons[1].value );	//	x4, x.25
+					viewScaleMultiplierTarget = Math.pow(4,  activeGp.buttons[0].value - activeGp.buttons[1].value );	//	x4, x.25
 					//zoom in/out a bit more WHILE holding some button (and return upon release)
 					//A,B on xbox controller. TODO smooth transition. 
-					
+
 				//TODO move calculation of total input from keys/gamepad outside this loop
 				//if (gpSettings.moveEnabled){
 					var gpMove=[];
@@ -697,8 +697,9 @@ var iterateMechanics = (function iterateMechanics(){
 				lastPlayerAngMove = scalarvectorprod(100000*magpow*timeStepMultiplier,gpRotate);
 				rotatePlayer(lastPlayerAngMove);	//TODO add rotational momentum - not direct rotate
 			}else{
-				viewScaleMultiplier=1;
+				viewScaleMultiplierTarget=1;
 			}
+			viewScaleMultiplier = viewScaleMultiplier*0.95 + 0.05*viewScaleMultiplierTarget;
 
 
             for (var cc=0;cc<3;cc++){
