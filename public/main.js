@@ -53,7 +53,7 @@ function init(){
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
 	gui.add(guiParams, "drawCircles");
-	
+
     canvas = document.getElementById("mycanvas");
 
 	initGL();
@@ -470,7 +470,7 @@ function updateCubemap(vecEyeSeparation){
 	//draw scene to screen. 
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
-    
+	
 	if (vrDisplay && vrDisplay.isPresenting){
 		
 		leftView[12]=0;		//TODO use headset position when drawing cubemap.
@@ -542,10 +542,16 @@ function updateCubemap(vecEyeSeparation){
 		}
 		//simple translation by -1 gets stereographic angle preserving projection on screen
 		//however, want to get view that's angle preserving when viewed at the set pMatrix FOV. to do this, scale view.
-		var scaleFactor = 1/Math.sqrt(1-guiParams.viewShiftZ*guiParams.viewShiftZ);
+		
+		//apply zoom while holding buttons
+		var adjustedCentreZoom = viewScaleMultiplier * guiParams.centreZoom;
+		var adjustedCentreZoomSq = adjustedCentreZoom*adjustedCentreZoom;
+		var adjustedViewShiftZ = (adjustedCentreZoomSq-1)/(adjustedCentreZoomSq+1);
+
+		var scaleFactor = 1/Math.sqrt(1-adjustedViewShiftZ*adjustedViewShiftZ);
 		mat4.scale(mvMatrix, vec3.create([1,1,scaleFactor]));
 
-		mat4.translate(mvMatrix, vec3.create([0,0,guiParams.viewShiftZ]));
+		mat4.translate(mvMatrix, vec3.create([0,0,adjustedViewShiftZ]));
 		drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
 	}
 
@@ -598,6 +604,7 @@ var guiParams = {
 	stereoSeparation:0.01,
 	drawCircles:true
 }
+var viewScaleMultiplier = 1;
 
 var iterateMechanics = (function iterateMechanics(){
     var lastTime=Date.now();
@@ -622,7 +629,6 @@ var iterateMechanics = (function iterateMechanics(){
 	var activeGp;
 
     return function(frameTime){
-
 		activeGp=getGamepad();
 
         var nowTime = Date.now();
@@ -638,7 +644,7 @@ var iterateMechanics = (function iterateMechanics(){
         }
         
         function stepSpeed(){	//TODO make all movement stuff fixed timestep (eg changing position by speed)
-	
+
 			currentThrustInput[0]=keyThing.keystate(65)-keyThing.keystate(68);	//lateral
 			currentThrustInput[1]=keyThing.keystate(32)-keyThing.keystate(220);	//vertical
             currentThrustInput[2]=keyThing.keystate(87)-keyThing.keystate(83);	//fwd/back
@@ -651,6 +657,10 @@ var iterateMechanics = (function iterateMechanics(){
 			
 
 			if (activeGp){
+					viewScaleMultiplier = Math.pow(4,  activeGp.buttons[0].value - activeGp.buttons[1].value );	//	x4, x.25
+					//zoom in/out a bit more WHILE holding some button (and return upon release)
+					//A,B on xbox controller. TODO smooth transition. 
+					
 				//TODO move calculation of total input from keys/gamepad outside this loop
 				//if (gpSettings.moveEnabled){
 					var gpMove=[];
@@ -686,6 +696,8 @@ var iterateMechanics = (function iterateMechanics(){
 				
 				lastPlayerAngMove = scalarvectorprod(100000*magpow*timeStepMultiplier,gpRotate);
 				rotatePlayer(lastPlayerAngMove);	//TODO add rotational momentum - not direct rotate
+			}else{
+				viewScaleMultiplier=1;
 			}
 
 
