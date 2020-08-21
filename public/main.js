@@ -50,6 +50,8 @@ function init(){
 		}
 	});
 
+	gui.add(guiParams, "zoomDirection", ["cockpit","headset"]);
+
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
 	gui.add(guiParams, "drawCircles");
@@ -536,22 +538,30 @@ function updateCubemap(vecEyeSeparation){
 		gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
 		mat4.identity(mvMatrix);
 		
-		mat4.multiply(mvMatrix, extraViewMat);	//??
+		mat4.multiply(mvMatrix, extraViewMat);
 		if (doSidelook){
 			mat4.rotate(mvMatrix,  guiParams.sideLook, vec3.create([0,1,0]));
 		}
 		//simple translation by -1 gets stereographic angle preserving projection on screen
 		//however, want to get view that's angle preserving when viewed at the set pMatrix FOV. to do this, scale view.
 		
-		//apply zoom while holding buttons
+		//currently cubemap is in frame of cockpit.
+		//maybe TODO, make cubemap in frame of zoom direction. might make skewing view frusta easier
+		// +avoids rotation by extraViewMat2 and its inverse, below
+
 		var adjustedCentreZoom = viewScaleMultiplier * guiParams.centreZoom;
 		var adjustedCentreZoomSq = adjustedCentreZoom*adjustedCentreZoom;
 		var adjustedViewShiftZ = (adjustedCentreZoomSq-1)/(adjustedCentreZoomSq+1);
-
 		var scaleFactor = 1/Math.sqrt(1-adjustedViewShiftZ*adjustedViewShiftZ);
-		mat4.scale(mvMatrix, vec3.create([1,1,scaleFactor]));
 
+		var extraViewMat2 = (guiParams.zoomDirection == "headset") ? mat4.create(extraViewMat) : mat4.identity();
+		var invertedExtMat = mat4.create(extraViewMat2);
+		mat4.inverse(invertedExtMat);
+		mat4.multiply(mvMatrix, invertedExtMat);	//note does nothing if zoom in cockpit frame
+		mat4.scale(mvMatrix, vec3.create([1,1,scaleFactor]));
 		mat4.translate(mvMatrix, vec3.create([0,0,adjustedViewShiftZ]));
+		mat4.multiply(mvMatrix, extraViewMat2);		//note does nothing if zoom in cockpit frame
+
 		drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
 	}
 
@@ -600,6 +610,7 @@ var guiParams = {
 	viewShiftZ:0,
 	viewShiftZAngle:0,
 	centreZoom:1,
+	zoomDirection:"cockpit",
 	sideLook:0,
 	stereoSeparation:0.01,
 	drawCircles:true
