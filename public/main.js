@@ -5,6 +5,7 @@ var cmapPMatrix = mat4.create();
 
 var mvMatrix = mat4.create();
 var playerCamera;
+var lockedViewMat = null;
 
 function init(){
     stats = new Stats();
@@ -50,7 +51,7 @@ function init(){
 		}
 	});
 
-	gui.add(guiParams, "zoomDirection", ["cockpit","headset"]);
+	gui.add(guiParams, "zoomDirection", ["cockpit","headset","headset, lock zoom"]);
 
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
@@ -530,6 +531,7 @@ function updateCubemap(vecEyeSeparation){
 		}
 	}
 
+	
 	function renderViewUsingCmap(extraViewMat, doSidelook){	//TODO pass in sidelook via extraViewMat
 		gl.clearColor.apply(gl,[0,0,1,1]);  //blue
 
@@ -554,7 +556,17 @@ function updateCubemap(vecEyeSeparation){
 		var adjustedViewShiftZ = (adjustedCentreZoomSq-1)/(adjustedCentreZoomSq+1);
 		var scaleFactor = 1/Math.sqrt(1-adjustedViewShiftZ*adjustedViewShiftZ);
 
-		var extraViewMat2 = (guiParams.zoomDirection == "headset") ? mat4.create(extraViewMat) : mat4.identity();
+		var extraViewMat2;
+
+		if (guiParams.zoomDirection == "cockpit"){
+			extraViewMat2 = mat4.identity();
+		}else if(guiParams.zoomDirection == "headset"){
+			extraViewMat2 = mat4.create(extraViewMat);
+		 }else if(guiParams.zoomDirection == "headset, lock zoom"){
+			lockedViewMat = lockedViewMat || mat4.create(extraViewMat);	//bodge, assume that extraViewMat eye independent
+			extraViewMat2 = mat4.create(lockedViewMat);
+		 }
+
 		var invertedExtMat = mat4.create(extraViewMat2);
 		mat4.inverse(invertedExtMat);
 		mat4.multiply(mvMatrix, invertedExtMat);	//note does nothing if zoom in cockpit frame
@@ -669,6 +681,7 @@ var iterateMechanics = (function iterateMechanics(){
 			var viewScaleMultiplierTarget;
 			if (activeGp){
 					viewScaleMultiplierTarget = Math.pow(4,  activeGp.buttons[0].value - activeGp.buttons[1].value );	//	x4, x.25
+
 					//zoom in/out a bit more WHILE holding some button (and return upon release)
 					//A,B on xbox controller. TODO smooth transition. 
 
@@ -710,6 +723,7 @@ var iterateMechanics = (function iterateMechanics(){
 			}else{
 				viewScaleMultiplierTarget=1;
 			}
+			if (viewScaleMultiplierTarget == 1){lockedViewMat=null;}
 			viewScaleMultiplier = viewScaleMultiplier*0.95 + 0.05*viewScaleMultiplierTarget;
 
 
