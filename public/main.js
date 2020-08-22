@@ -57,6 +57,7 @@ function init(){
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
 	gui.add(guiParams, "drawCircles");
 	gui.add(guiParams, "tempCubemapScale", 0.1, 2.0, 0.05);
+	gui.add(guiParams, "drawChequers");
 
     canvas = document.getElementById("mycanvas");
 
@@ -76,7 +77,7 @@ function init(){
 
 function initShaders(){
     shaderPrograms.basic = loadShader("shader-simple-vs", "shader-simple-fs");
-    shaderPrograms.fullscreenTextured = loadShader( "shader-fullscreen-vs", "shader-fullscreen-fs");
+    shaderPrograms.fullscreenChequer = loadShader( "shader-fullscreen-vs", "shader-fullscreen-chequer-fs");
     shaderPrograms.simpleCubemap = loadShader( "shader-simple-cmap-vs", "shader-simple-cmap-fs");
     shaderPrograms.noTex = loadShader( "shader-notex-vs", "shader-notex-fs");
 }
@@ -313,6 +314,9 @@ function setPerspective(){
 }
 
 function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	//TODO encode rotateforface info inside extraMatrices
+
+	var activeShaderProgram;
+
 	var tmpCubemapScale = vec3.create([guiParams.tempCubemapScale, guiParams.tempCubemapScale, 1]);
 
 	mat4.identity(mvMatrix);
@@ -348,7 +352,7 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 
 	mat4.inverse(mvMatrix);
 
-    var activeShaderProgram = shaderPrograms.basic;
+    activeShaderProgram = shaderPrograms.basic;
     gl.useProgram(activeShaderProgram);
 
     bind2dTextureIfRequired(texture);		//currently could just keep this bound
@@ -368,8 +372,21 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	
 	gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,1,1]);	//white
 	mat4.scale(mvMatrix, vec3.create([-100,-100,-100]));	//big inverted box. 
-    drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
+	drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
 
+	if (camNum!=-1 && guiParams.drawChequers){
+		gl.enable(gl.BLEND);
+		//gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+		//draw a chequer pattern. could do this by gr rect etc, but do by standard rendering
+		activeShaderProgram = shaderPrograms.fullscreenChequer;
+		gl.useProgram(activeShaderProgram);
+		drawObjectFromBuffers(fsBuffers, activeShaderProgram);
+		gl.disable(gl.BLEND);
+	}
+
+	if (!guiParams.drawCircles){return;}	//save a lot of draw calls.
 
 	var activeShaderProgram = shaderPrograms.noTex;
     gl.useProgram(activeShaderProgram);
@@ -378,8 +395,6 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	var miniBoxScale = 0.0001;
 	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [miniBoxScale,miniBoxScale,miniBoxScale]);
     gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,0,1]);	//yellow
-
-	if (!guiParams.drawCircles){return;}	//save a lot of draw calls.
 
 	//draw objects around "cockpit"
 	//mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
@@ -528,14 +543,6 @@ function updateCubemap(vecEyeSeparation){
 			//various ways to do this. some maybe more efficient than others
 			//1. fullscreen quad, per vertex projection. should be simple for undistorted. 
 
-			/*
-			var activeShaderProgram = shaderPrograms.fullscreenTextured;
-			gl.useProgram(activeShaderProgram);
-			gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
-
-			drawObjectFromBuffers(fsBuffers, activeShaderProgram);
-			*/
-
 			//2. simple projection on a sphere. should be easy maths, can do in vertex shader.
 			renderViewUsingCmap(identMat, true);
 		}else{
@@ -647,6 +654,7 @@ var guiParams = {
 
 						//TODO auto adjustment with zoom
 						//TODO follow zoom direction (currently assumes zoom aligned with cockpit)
+	drawChequers:true
 }
 var viewScaleMultiplier = 1;
 
@@ -814,11 +822,15 @@ function prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap){
 		gl.uniform1i(shaderProg.uniforms.uSampler, 1);	//put cubemap in tex 1 always, avoiding bind calls.
 	}
 	
-	gl.uniformMatrix4fv(shaderProg.uniforms.uPMatrix, false, pMatrix);
+	if (shaderProg.uniforms.uPMatrix){
+		gl.uniformMatrix4fv(shaderProg.uniforms.uPMatrix, false, pMatrix);
+	}
 }
 
 function drawObjectFromPreppedBuffers(bufferObj, shaderProg){
-	gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
+	if (shaderProg.uniforms.uMVMatrix){
+		gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
+	}
 	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 

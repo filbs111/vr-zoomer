@@ -15,6 +15,7 @@
     <script type="text/javascript" src="utils/gamepad.js"></script>
     <script type="text/javascript" src="utils/gamepad_settings.js"></script>
     <script type="text/javascript" src="data/sphere.js"></script>
+    <script type="text/javascript" src="data/quad.js"></script>
     <script type="text/javascript" src="data/levelCubeData.js"></script>
     
 
@@ -85,13 +86,20 @@
         }
     </script>
     
-    <script id="shader-fullscreen-fs" type="x-shader/x-fragment">
+    <script id="shader-fullscreen-chequer-fs" type="x-shader/x-fragment">
         precision mediump float;
-        varying vec3 vTextureCoord;
-        uniform samplerCube uSampler;
+        varying vec3 vTextureCoord; //could use vec2, but vec3 is easy - just get triangles drawn on screen
         
         void main(void) {
-            gl_FragColor = textureCube(uSampler, vTextureCoord);
+            vec2 coords2d = vTextureCoord.xy / vTextureCoord.z;
+            coords2d*=8.0;
+            coords2d+=.5;
+
+            float total = floor(coords2d.x) + floor(coords2d.y);    //easier way to sum vector?
+            bool isEven = mod(total,2.0)==0.0;
+            float greyColor = isEven? 1.0:0.0;
+
+            gl_FragColor = vec4( vec3(greyColor), 0.1);
         }
     </script>
 
