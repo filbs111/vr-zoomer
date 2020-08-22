@@ -304,7 +304,7 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 
 	var activeShaderProgram;
 
-	var tmpCubemapScale = vec3.create([currentCubemapScale, currentCubemapScale, 1]);
+	var tmpCubemapScale = vec3.create([1, 1, 1/currentCubemapScale]);
 
 	mat4.identity(mvMatrix);
 	mat4.translate(mvMatrix, vec3.create([positionShift,0,0]));
