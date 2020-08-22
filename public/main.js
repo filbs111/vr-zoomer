@@ -363,14 +363,15 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 
 	if (camNum!=-1 && guiParams.drawChequers){
 		gl.enable(gl.BLEND);
-		//gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
+		gl.depthMask(false);
 		//draw a chequer pattern. could do this by gr rect etc, but do by standard rendering
 		activeShaderProgram = shaderPrograms.fullscreenChequer;
 		gl.useProgram(activeShaderProgram);
 		drawObjectFromBuffers(fsBuffers, activeShaderProgram);
 		gl.disable(gl.BLEND);
+		gl.depthMask(true);
 	}
 
 	if (!guiParams.drawCircles){return;}	//save a lot of draw calls.
