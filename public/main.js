@@ -56,6 +56,7 @@ function init(){
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
 	gui.add(guiParams, "drawCircles");
+	gui.add(guiParams, "tempCubemapScale", 0.1, 2.0, 0.05);
 
     canvas = document.getElementById("mycanvas");
 
@@ -178,7 +179,6 @@ var bind2dTextureIfRequired = (function createBind2dTextureIfRequiredFunction(){
 		}
 	}
 })();
-
 
 var cubemapView={};
 //var cubemapSize = 1024;	//noticable pixellation. (unskewed cubemap)
@@ -313,6 +313,7 @@ function setPerspective(){
 }
 
 function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	//TODO encode rotateforface info inside extraMatrices
+	var tmpCubemapScale = vec3.create([guiParams.tempCubemapScale, guiParams.tempCubemapScale, 1]);
 
 	mat4.identity(mvMatrix);
 	mat4.translate(mvMatrix, vec3.create([positionShift,0,0]));
@@ -339,6 +340,10 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 		mat4.translate(mvMatrix, vec3.create(vecPositionShift));
 	}
 
+	//extra scaling for cubemap only (temp - should do this a better way)
+	if (camNum != -1){
+		mat4.scale(mvMatrix, tmpCubemapScale);
+	}
 	rotateCameraForFace(camNum);    //cubemap cameras 0 to 5. non-cubemap camera # -1
 
 	mat4.inverse(mvMatrix);
@@ -380,6 +385,11 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	//mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
 	mat4.set(extraViewMat, mvMatrix);	//TODO tidy up matrix mess!!
 	mat4.inverse(mvMatrix);
+
+	//extra scaling for cubemap only (temp - should do this a better way)
+	if (camNum != -1){
+		mat4.scale(mvMatrix, tmpCubemapScale);
+	}
 	rotateCameraForFace(camNum);
 	mat4.inverse(mvMatrix);
 
@@ -397,6 +407,10 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 			//mat4.identity(mvMatrix);   //copy mvMatrix from playerCamera. TODO matrices for various scene objects etc
 			mat4.set(extraViewMat, mvMatrix);
 			mat4.inverse(mvMatrix);
+			//extra scaling for cubemap only (temp - should do this a better way)
+			if (camNum != -1){
+				mat4.scale(mvMatrix, tmpCubemapScale);
+			}
 			rotateCameraForFace(camNum);
 			mat4.inverse(mvMatrix);
 
@@ -574,6 +588,7 @@ function updateCubemap(vecEyeSeparation){
 		mat4.translate(mvMatrix, vec3.create([0,0,adjustedViewShiftZ]));
 		mat4.multiply(mvMatrix, extraViewMat2);		//note does nothing if zoom in cockpit frame
 
+		gl.uniform3fv(activeShaderProgram.uniforms.uCmapScale, [1,1,guiParams.tempCubemapScale]);
 		drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
 	}
 
@@ -625,7 +640,13 @@ var guiParams = {
 	zoomDirection:"cockpit",
 	sideLook:0,
 	stereoSeparation:0.01,
-	drawCircles:true
+	drawCircles:true,
+	tempCubemapScale:1,	//stretch cubemap so forward view frustrum can be tighter for high zoom etc.
+						//TODO rear frustum should expand when forward tightens and vice versa, 
+						// but simple scaling should get decent pixel scale matching in centre of screen.
+
+						//TODO auto adjustment with zoom
+						//TODO follow zoom direction (currently assumes zoom aligned with cockpit)
 }
 var viewScaleMultiplier = 1;
 

@@ -99,6 +99,8 @@
     <script id="shader-simple-cmap-vs" type="x-shader/x-vertex">
         uniform mat4 uMVMatrix;
         uniform mat4 uPMatrix;
+        uniform vec3 uCmapScale;
+
         attribute vec3 aVertexPosition;
         varying vec3 vTextureCoord;
         
@@ -107,7 +109,7 @@
             vec4 transformedCoord = uMVMatrix * vec4(invertedCoords, 1.0);
             gl_Position = uPMatrix * transformedCoord;
 
-            vTextureCoord = invertedCoords * vec3(-1.,-1.,1.);
+            vTextureCoord = invertedCoords * uCmapScale*vec3(-1.,-1.,1.);
         }
     </script>
     
