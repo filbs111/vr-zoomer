@@ -16,38 +16,24 @@ function init(){
 	var guiControllers = {};
 	gui.add(guiParams, "fov", 10,150,5).onChange(setPerspective);
 	gui.add(guiParams, "drawUsingCubemap");
-	var viewShiftZPrecision = 0.001;
 	var viewShiftZAnglePrecision = 0.001;
 	var centreZoomPrecision = 0.01;
-	guiControllers.viewShiftZ = gui.add(guiParams, "viewShiftZ", -0.998,0.998,viewShiftZPrecision);	//TODO angle scale? asin(viewShiftZ) ?
 	guiControllers.viewShiftZAngle = gui.add(guiParams, "viewShiftZAngle", -Math.PI/2,Math.PI/2,viewShiftZAnglePrecision);	//asin(viewShiftZ) ?
 	guiControllers.centreZoom = gui.add(guiParams, "centreZoom", 0,15,centreZoomPrecision);	//TODO log scale? does dat gui support?
-	guiControllers.viewShiftZ.onChange(val=>{
-		//console.log("inside viewShiftZ onchange");
-		//calculate effective zoom at centre. distance from centre side of sphere = 1-viewShiftZ,
-		// scale of sphere : 1/Math.sqrt(1-guiParams.viewShiftZ*guiParams.viewShiftZ);
-		// total expect is Math.sqrt(1-val*val)/(1-val))
-		var centreZoom = (Math.sqrt((1+val)/(1-val)))	// sqrt( (1-val) * (1+val) ) / (1-val) = sqrt( (1+val)/(1-val)
-		if (Math.abs(centreZoom - guiParams.centreZoom) > centreZoomPrecision){
-			guiControllers.centreZoom.setValue(centreZoom);
-		}
-		var viewShiftZAngle = Math.asin(val);
-		if (Math.abs(viewShiftZAngle - guiParams.viewShiftZAngle) > viewShiftZAnglePrecision){
-			guiControllers.viewShiftZAngle.setValue(viewShiftZAngle);
-		}
-	});
 	guiControllers.viewShiftZAngle.onChange(val=>{
 		var viewShiftZ = Math.sin(val);
-		if (Math.abs(viewShiftZ - guiParams.viewShiftZ) > viewShiftZPrecision){
-			guiControllers.viewShiftZ.setValue(viewShiftZ);
+		var centreZoom = (Math.sqrt((1+viewShiftZ)/(1-viewShiftZ)))	// sqrt( (1-val) * (1+val) ) / (1-val) = sqrt( (1+val)/(1-val)
+		if (Math.abs(centreZoom - guiParams.centreZoom) > centreZoomPrecision){
+			guiControllers.centreZoom.setValue(centreZoom);
 		}
 	});
 	guiControllers.centreZoom.onChange(val=>{
 		//console.log("inside centreZoom onchange");
 		var centreZoomSq = val*val;
 		var viewShiftZ = (centreZoomSq-1)/(centreZoomSq+1);
-		if (Math.abs(viewShiftZ - guiParams.viewShiftZ) > viewShiftZPrecision){
-			guiControllers.viewShiftZ.setValue(viewShiftZ);
+		var viewShiftZAngle = Math.asin(viewShiftZ);
+		if (Math.abs(viewShiftZAngle - guiParams.viewShiftZAngle) > viewShiftZAnglePrecision){
+			guiControllers.viewShiftZAngle.setValue(viewShiftZAngle);
 		}
 	});
 
@@ -56,6 +42,7 @@ function init(){
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
 	gui.add(guiParams, "drawCircles");
+	gui.add(guiParams, "autoScale");	//todo onchange grey out cubemapScale if true
 	gui.add(guiParams, "tempCubemapScale", 0.1, 2.0, 0.05);
 	gui.add(guiParams, "drawChequers");
 
@@ -317,7 +304,7 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 
 	var activeShaderProgram;
 
-	var tmpCubemapScale = vec3.create([guiParams.tempCubemapScale, guiParams.tempCubemapScale, 1]);
+	var tmpCubemapScale = vec3.create([currentCubemapScale, currentCubemapScale, 1]);
 
 	mat4.identity(mvMatrix);
 	mat4.translate(mvMatrix, vec3.create([positionShift,0,0]));
@@ -448,6 +435,8 @@ function drawScene(frameTime){
 	
 	//examples use same callback to draw scene for vr, non-vr
 	//TODO is it better to have different callbacks?
+
+	currentCubemapScale = guiParams.autoScale ?  1/(guiParams.centreZoom*viewScaleMultiplier) : guiParams.tempCubemapScale;
 
 	var vecEyeSeparation=[0,0,0];	//default. overwrite if VR.
 	var vecEyeSeparation2=[0,0,0];
@@ -595,7 +584,7 @@ function updateCubemap(vecEyeSeparation){
 		mat4.translate(mvMatrix, vec3.create([0,0,adjustedViewShiftZ]));
 		mat4.multiply(mvMatrix, extraViewMat2);		//note does nothing if zoom in cockpit frame
 
-		gl.uniform3fv(activeShaderProgram.uniforms.uCmapScale, [1,1,guiParams.tempCubemapScale]);
+		gl.uniform3fv(activeShaderProgram.uniforms.uCmapScale, [1,1,currentCubemapScale]);
 		drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
 	}
 
@@ -641,7 +630,7 @@ function rotateCameraForFace(ii){
 var guiParams = {
 	fov:40,	//vertical fov. 40deg = -20 to +20	.
 	drawUsingCubemap:true,
-	viewShiftZ:0,
+	autoScale:true,
 	viewShiftZAngle:0,
 	centreZoom:1,
 	zoomDirection:"cockpit",
@@ -657,6 +646,7 @@ var guiParams = {
 	drawChequers:true
 }
 var viewScaleMultiplier = 1;
+var currentCubemapScale = 1;
 
 var iterateMechanics = (function iterateMechanics(){
     var lastTime=Date.now();
