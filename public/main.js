@@ -38,6 +38,7 @@ function init(){
 	});
 
 	gui.add(guiParams, "zoomDirection", ["cockpit","headset","headset, lock zoom"]);
+	gui.add(guiParams, "holdZoomMagFactor",2,16,0.5);
 	gui.add(guiParams, "stabilisation",0,1,0.1);	//applies to headset, lock zoom. TODO apply to headset standard
 
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
@@ -669,6 +670,7 @@ var guiParams = {
 	viewShiftZAngle:0,
 	centreZoom:1,
 	zoomDirection:"cockpit",
+	holdZoomMagFactor:4,
 	stabilisation:1,	//1= fixed, 0=responds to movement without smoothing
 	sideLook:0,
 	stereoSeparation:0.01,
@@ -788,7 +790,7 @@ var iterateMechanics = (function iterateMechanics(){
 			
 			var viewScaleMultiplierTarget;
 			if (activeGp){
-					viewScaleMultiplierTarget = Math.pow(4,  activeGp.buttons[0].value - activeGp.buttons[1].value );	//	x4, x.25
+					viewScaleMultiplierTarget = Math.pow(guiParams.holdZoomMagFactor,  activeGp.buttons[0].value - activeGp.buttons[1].value );	//	x4, x.25
 
 					//zoom in/out a bit more WHILE holding some button (and return upon release)
 					//A,B on xbox controller. TODO smooth transition. 
