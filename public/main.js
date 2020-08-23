@@ -38,6 +38,7 @@ function init(){
 	});
 
 	gui.add(guiParams, "zoomDirection", ["cockpit","headset","headset, lock zoom"]);
+	gui.add(guiParams, "stabilisation",0,1,0.1);	//applies to headset, lock zoom. TODO apply to headset standard
 
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
@@ -45,6 +46,17 @@ function init(){
 	gui.add(guiParams, "autoScale");	//todo onchange grey out cubemapScale if true
 	gui.add(guiParams, "tempCubemapScale", 0.1, 2.0, 0.05);
 	gui.add(guiParams, "drawChequers");
+
+	var tmpObject;
+
+	tmpObject = {};
+	for (var elem=0;elem<16;elem++){
+		tmpObject["matrixElement"+elem]=0;
+		guiTestMatrix.values.push(tmpObject);
+		guiTestMatrix.controllers.push(gui.add(guiTestMatrix.values[elem], "matrixElement"+elem, -1,1,0.001));
+	}
+	guiTestMatrix.values.push({rotationVal:0});
+	guiTestMatrix.controllers.push(gui.add(guiTestMatrix.values[16], "rotationVal", 0,3.15,0.001));
 
     canvas = document.getElementById("mycanvas");
 
@@ -657,6 +669,7 @@ var guiParams = {
 	viewShiftZAngle:0,
 	centreZoom:1,
 	zoomDirection:"cockpit",
+	stabilisation:1,	//1= fixed, 0=responds to movement without smoothing
 	sideLook:0,
 	stereoSeparation:0.01,
 	drawCircles:true,
@@ -666,8 +679,10 @@ var guiParams = {
 
 						//TODO auto adjustment with zoom
 						//TODO follow zoom direction (currently assumes zoom aligned with cockpit)
-	drawChequers:true
+	drawChequers:true,
 }
+var guiTestMatrix={values:[],controllers:[]};
+
 var viewScaleMultiplier = 1;
 var currentCubemapScale = 1;
 
@@ -709,6 +724,57 @@ var iterateMechanics = (function iterateMechanics(){
         }
         
         function stepSpeed(){	//TODO make all movement stuff fixed timestep (eg changing position by speed)
+
+			//smoothing of zoom frame
+			if (lockedViewMat){
+			//	if (guiParams.stabilisation == 0){
+			//		mat4.set(leftView, lockedViewMat);	//equivalent to all the below for 0 stabilisation
+			//	}
+				//"averaging" maybe a bit tricky - new version of lockedViewMat should be created by rotating leftView (assumed to be =rightView)
+				//towards pointing (z) in same direction as lockedViewMat, by a fraction Math.pow(guiParams.stabilisation, something), to get exponential 
+				//decay. with full stabilisation (1), still expect to see roll such that cubemap, view direction ~ line up
+				
+				//get matrix between leftView, lockedViewMat, to see which elements describe lockedView direction in frame of leftView (current headset)
+				var invLockMat = mat4.create(lockedViewMat);	//TODO retain this inverse mat since used elsewhere
+				mat4.inverse(invLockMat);
+
+				var tmpMat = mat4.create(leftView);
+				mat4.multiply(tmpMat, invLockMat);
+
+				//display invLockMat in ui
+				for (var elem=0;elem<16;elem++){
+					guiTestMatrix.controllers[elem].setValue(tmpMat[elem]);
+				}
+				//pitching increases 6,9 in opposition (starting from zero)
+				//rolling ........ 1,4
+				//turning ........ 2,8
+
+				//									lockedview
+				//  0		roll	turn	3		left
+				//  roll	5		pitch	7
+				//  turn	pitch   10		11		fwd
+				//	12		13		14		15
+
+		// headset	left			fwd
+
+				//try turning after roll. 2 changes consistently with previous, so suppose 2 is headset forward projected onto lockedview left..
+
+				//what rotation want to do to stay pointed at lockview, with rotation about axis perpendicular to headset forwards.
+				//want to look at lockedview fwd projected onto headset all axes of headset (current). elements 8,9,10.
+
+				//create a rotation vector that describes rotation in frame of headset that would rotate to current lockview
+				var rotationAmount = Math.atan2(Math.hypot(tmpMat[8],tmpMat[9]), tmpMat[10]);
+				guiTestMatrix.controllers[16].setValue(rotationAmount);
+
+				rotationAmount*= Math.pow(guiParams.stabilisation, 0.001);	//simple stabilisation <1: multiply this by stabilisation^somePower
+				
+				mat4.set(leftView, lockedViewMat);	//copies leftView into lockedViewMat
+				mat4.inverse(lockedViewMat);
+				mat4.rotate(lockedViewMat, rotationAmount, vec3.create([-tmpMat[9],tmpMat[8],0]));	//afaik rotation normalises input vector
+				mat4.inverse(lockedViewMat);
+
+				//TODO higher order smoothing - spring/damper for nonzero mass (current is like spring/damper for mass->0)
+			}
 
 			currentThrustInput[0]=keyThing.keystate(65)-keyThing.keystate(68);	//lateral
 			currentThrustInput[1]=keyThing.keystate(32)-keyThing.keystate(220);	//vertical
