@@ -304,7 +304,7 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 
 	var activeShaderProgram;
 
-	var tmpCubemapScale = vec3.create([1, 1, 1/currentCubemapScale]);
+	var tmpCubemapScale = vec3.create([currentCubemapScale, currentCubemapScale, 1]);
 
 	mat4.identity(mvMatrix);
 	mat4.translate(mvMatrix, vec3.create([positionShift,0,0]));
@@ -380,7 +380,7 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
     gl.useProgram(activeShaderProgram);
 	prepBuffersForDrawing(sphereBuffers, activeShaderProgram);
 
-	var miniBoxScale = 0.0001;
+	var miniBoxScale = 0.001;
 	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [miniBoxScale,miniBoxScale,miniBoxScale]);
     gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,0,1]);	//yellow
 
@@ -396,12 +396,12 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	rotateCameraForFace(camNum);
 	mat4.inverse(mvMatrix);
 
-	mat4.translate(mvMatrix, vec3.create([0,0,-0.01]));	//straight ahead
+	mat4.translate(mvMatrix, vec3.create([0,0,-0.1]));	//straight ahead
 	drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
 
-	drawBallRing([0,0,1,1], 10, 0.01, 0);			//blue, splitting front, back
-	drawBallRing([1,0.5,0,1], 20, 0.007, 0.007);	//orange, 45 deg in front
-	drawBallRing([1,0.5,0,1], 20, 0.007, -0.007);	//orange, 45 deg behind
+	drawBallRing([0,0,1,1], 10, 0.1, 0);			//blue, splitting front, back
+	drawBallRing([1,0.5,0,1], 20, 0.07, 0.07);	//orange, 45 deg in front
+	drawBallRing([1,0.5,0,1], 20, 0.07, -0.07);	//orange, 45 deg behind
 
 	function drawBallRing(color, angstep, side, front){
 		gl.uniform4fv(activeShaderProgram.uniforms.uColor, color);
