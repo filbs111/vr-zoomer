@@ -493,6 +493,7 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 			matToPassIn = eyeViewMat;
 		}else if(guiParams.zoomDirection == "headset, lock zoom"){
 			//TODO expect this should be rotation between lockedViewMat, cockpit view
+			matToPassIn = lockedViewMat || eyeViewMat;
 		}
 
 		//correct vecEyeSeparation for cubemap in headset frame, where appropriate
@@ -581,7 +582,12 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 		}else if(guiParams.zoomDirection == "headset"){
 			//do nothing.
 		}else if(guiParams.zoomDirection == "headset, lock zoom"){
-			//TODO!! possibly should pass something relevant in...
+			//rotation between lockedViewMat, extraViewMat
+			mat4.multiply(mvMatrix, extraViewMat);
+			lockedViewMat = lockedViewMat || mat4.create(extraViewMat);
+			var invLockMat = mat4.create(lockedViewMat);
+			mat4.inverse(invLockMat);
+			mat4.multiply(mvMatrix, invLockMat);
 		}
 
 		if (doSidelook){
@@ -598,29 +604,9 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 		var adjustedCentreZoomSq = adjustedCentreZoom*adjustedCentreZoom;
 		var adjustedViewShiftZ = (adjustedCentreZoomSq-1)/(adjustedCentreZoomSq+1);
 		var scaleFactor = 1/Math.sqrt(1-adjustedViewShiftZ*adjustedViewShiftZ);
-
-		var extraViewMat2;
-
-		if (guiParams.zoomDirection == "cockpit"){
-			extraViewMat2 = mat4.identity();
-		}else if(guiParams.zoomDirection == "headset"){
-			//extraViewMat2 = mat4.create(extraViewMat);
-			//mat4.inverse(extraViewMat2);
-			extraViewMat2 = mat4.identity();
-		 }else if(guiParams.zoomDirection == "headset, lock zoom"){
-			lockedViewMat = lockedViewMat || mat4.create(extraViewMat);	//bodge, assume that extraViewMat eye independent
-			extraViewMat2 = mat4.create(lockedViewMat);
-
-			//TODO expect this should be rotation between lockedViewMat, extraViewMat
-		 }
-
-		var invertedExtMat = mat4.create(extraViewMat2);
-		mat4.inverse(invertedExtMat);
-		mat4.multiply(mvMatrix, invertedExtMat);	//note does nothing if zoom in cockpit frame
 		mat4.scale(mvMatrix, vec3.create([1,1,scaleFactor]));
 		mat4.translate(mvMatrix, vec3.create([0,0,adjustedViewShiftZ]));
-		mat4.multiply(mvMatrix, extraViewMat2);		//note does nothing if zoom in cockpit frame
-
+		
 		gl.uniform3fv(activeShaderProgram.uniforms.uCmapScale, [1,1,currentCubemapScale]);
 		drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
 	}
