@@ -470,11 +470,10 @@ function drawScene(frameTime){
     stats.begin();
 
 
-if (guiParams.drawUsingCubemap){
-	updateCubemap(vecEyeSeparation);
-}
 
-function updateCubemap(vecEyeSeparation){
+
+function updateCubemap(vecEyeSeparation, eyeViewMat){
+
 	//DRAW CUBEMAP
     gl.clearColor.apply(gl,[0,1,1,1]);  //cyan
     var numFacesToUpdate = 6;
@@ -484,12 +483,29 @@ function updateCubemap(vecEyeSeparation){
         var framebuffer = cubemapView.framebuffers[ii];
         gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
         gl.viewport(0, 0, framebuffer.width, framebuffer.height);
-    //    mat4.identity(worldCamera);
-	 //   rotateCameraForFace(ii);
-    	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        drawWorldScene(identMat, ii, 0, vecEyeSeparation);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		
+		//TODO just store difference between cockpit and view mat
+		var matToPassIn;
+		if (guiParams.zoomDirection == "cockpit"){
+			matToPassIn = identMat;		//could just use eyeViewMat here because passing in.
+		}else if(guiParams.zoomDirection == "headset"){
+			matToPassIn = eyeViewMat;
+		}else if(guiParams.zoomDirection == "headset, lock zoom"){
+			//TODO expect this should be rotation between lockedViewMat, cockpit view
+		}
+
+		//correct vecEyeSeparation for cubemap in headset frame, where appropriate
+		// there might be a glmatrix method for this but can't find it!!!
+		var rotatedVec3 = vec3.create([0,0,0]);
+		for (var aa=0;aa<3;aa++){
+			for (var bb=0;bb<3;bb++){
+				rotatedVec3[aa] += matToPassIn[bb*4 + aa] * vecEyeSeparation[bb];
+			}
+		}
+
+        drawWorldScene(matToPassIn, ii, 0, rotatedVec3);
 	}
-	//draw scene to screen. 
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 }
 	
@@ -502,6 +518,10 @@ function updateCubemap(vecEyeSeparation){
 		rightView[13]=0;
 		rightView[14]=0;
 
+		if (guiParams.drawUsingCubemap){
+			updateCubemap(vecEyeSeparation, leftView);
+		}
+
 		gl.viewport(0, 0, canvas.width/2, canvas.height);
 		mat4.set(frameData.leftProjectionMatrix, pMatrix);
 		if (guiParams.drawUsingCubemap){
@@ -511,7 +531,7 @@ function updateCubemap(vecEyeSeparation){
 		}
 
 		if (guiParams.drawUsingCubemap && guiParams.stereoSeparation!=0){
-			updateCubemap(vecEyeSeparation2);
+			updateCubemap(vecEyeSeparation2, rightView);
 		}
 
 		gl.viewport(canvas.width/2, 0, canvas.width/2, canvas.height);
@@ -525,6 +545,9 @@ function updateCubemap(vecEyeSeparation){
 		vrDisplay.submitFrame();
 
 	}else{
+
+		updateCubemap(vecEyeSeparation, identMat);
+
 		gl.viewport(0, 0, canvas.width, canvas.height);
 		mat4.set(pMatrixScreen, pMatrix);
 
@@ -551,7 +574,16 @@ function updateCubemap(vecEyeSeparation){
 		gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
 		mat4.identity(mvMatrix);
 		
-		mat4.multiply(mvMatrix, extraViewMat);
+
+		//AFAIK this is between cubemap and view directions. ie guess want to rotate by inverse of cubemap orientation relative to cockpit.
+		if (guiParams.zoomDirection == "cockpit"){
+			mat4.multiply(mvMatrix, extraViewMat);
+		}else if(guiParams.zoomDirection == "headset"){
+			//do nothing.
+		}else if(guiParams.zoomDirection == "headset, lock zoom"){
+			//TODO!! possibly should pass something relevant in...
+		}
+
 		if (doSidelook){
 			mat4.rotate(mvMatrix,  guiParams.sideLook, vec3.create([0,1,0]));
 		}
@@ -572,10 +604,14 @@ function updateCubemap(vecEyeSeparation){
 		if (guiParams.zoomDirection == "cockpit"){
 			extraViewMat2 = mat4.identity();
 		}else if(guiParams.zoomDirection == "headset"){
-			extraViewMat2 = mat4.create(extraViewMat);
+			//extraViewMat2 = mat4.create(extraViewMat);
+			//mat4.inverse(extraViewMat2);
+			extraViewMat2 = mat4.identity();
 		 }else if(guiParams.zoomDirection == "headset, lock zoom"){
 			lockedViewMat = lockedViewMat || mat4.create(extraViewMat);	//bodge, assume that extraViewMat eye independent
 			extraViewMat2 = mat4.create(lockedViewMat);
+
+			//TODO expect this should be rotation between lockedViewMat, extraViewMat
 		 }
 
 		var invertedExtMat = mat4.create(extraViewMat2);
