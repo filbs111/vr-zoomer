@@ -47,6 +47,8 @@ function init(){
 	gui.add(guiParams, "autoScale");	//todo onchange grey out cubemapScale if true
 	gui.add(guiParams, "tempCubemapScale", 0.1, 2.0, 0.05);
 	gui.add(guiParams, "drawChequers");
+	gui.add(guiParams, "wireframe");	//see whether object projecting cubemap onto is sufficiently well tesselated
+	gui.add(guiParams, "useOtherShader");
 
 	var tmpObject;
 
@@ -79,7 +81,8 @@ function initShaders(){
     shaderPrograms.basic = loadShader("shader-simple-vs", "shader-simple-fs");
     shaderPrograms.fullscreenChequer = loadShader( "shader-fullscreen-vs", "shader-fullscreen-chequer-fs");
     shaderPrograms.simpleCubemap = loadShader( "shader-simple-cmap-vs", "shader-simple-cmap-fs");
-    shaderPrograms.noTex = loadShader( "shader-notex-vs", "shader-notex-fs");
+	shaderPrograms.noTex = loadShader( "shader-notex-vs", "shader-notex-fs");
+	shaderPrograms.vertProj = loadShader( "shader-vertproj-cmap-vs", "shader-vertproj-cmap-fs");
 }
 
 function completeShaders(){
@@ -621,7 +624,48 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 		mat4.translate(mvMatrix, vec3.create([0,0,adjustedViewShiftZ]));
 		
 		gl.uniform3fv(activeShaderProgram.uniforms.uCmapScale, [1,1,currentCubemapScale]);
-		drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
+
+		if (!guiParams.useOtherShader){
+			if (guiParams.wireframe){
+				drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram, null, gl.LINES);
+			}else{
+				drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
+			}
+		}else{
+			//draw by another method. project vertices from viewpoint, onto surface of above sphere/ellipsoid
+			//each vertex should remain in same point on screen. if depth is correct, distortion should be minimised, but if depth 
+			//constant (eg simple flat grid), should work OK.
+
+			activeShaderProgram = shaderPrograms.vertProj;
+			gl.useProgram(activeShaderProgram);
+
+			var centrePos = [0,0,adjustedViewShiftZ];		//position of sphere centre in camera frame (or -ve this?)
+									//TODO proper value, but in simple cases, (zoom in headset direction) is just in z-direction
+
+		//	gl.uniform3fv(activeShaderProgram.uniforms.uCentrePosScaled, [0,0,0]);			//TODO
+			gl.uniform3fv(activeShaderProgram.uniforms.uCentrePosScaled, centrePos);			//TODO
+
+			var scaleMat = mat3.identity();
+			scaleMat[8]=scaleFactor;
+			var scaleMat2 = mat3.identity();
+			scaleMat2[8]=1/scaleFactor;
+
+			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uStretchMatrix, false, scaleMat2);		//TODO
+			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uUnStretchMatrix, false, scaleMat);	//TODO
+
+			gl.disable(gl.CULL_FACE);	//TODO invert sphere?
+			if (guiParams.wireframe){
+				drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram, null, gl.LINES);
+			}else{
+				drawObjectFromBuffers(sphereBuffersHiRes, activeShaderProgram);
+			}
+			gl.enable(gl.CULL_FACE);
+
+
+		}
+
+
+
 	}
 
 	function renderViewNoCmap(extraViewMat, positionShift){
@@ -682,6 +726,8 @@ var guiParams = {
 						//TODO auto adjustment with zoom
 						//TODO follow zoom direction (currently assumes zoom aligned with cockpit)
 	drawChequers:true,
+	wireframe:false,
+	useOtherShader:true
 }
 var guiTestMatrix={values:[],controllers:[]};
 
@@ -876,9 +922,9 @@ function scalarvectorprod(sca,vec){
 	return vec.map(function(val){return sca*val;});
 }
 
-function drawObjectFromBuffers(bufferObj, shaderProg, usesCubeMap){
+function drawObjectFromBuffers(bufferObj, shaderProg, usesCubeMap, drawMethod){
 	prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap);
-	drawObjectFromPreppedBuffers(bufferObj, shaderProg);
+	drawObjectFromPreppedBuffers(bufferObj, shaderProg, drawMethod);
 }
 
 function prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap){
@@ -908,11 +954,12 @@ function prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap){
 	}
 }
 
-function drawObjectFromPreppedBuffers(bufferObj, shaderProg){
+function drawObjectFromPreppedBuffers(bufferObj, shaderProg, drawMethod){
 	if (shaderProg.uniforms.uMVMatrix){
 		gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
 	}
-	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+	drawMethod = drawMethod || gl.TRIANGLES;
+	gl.drawElements(drawMethod, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
 var enableDisableAttributes = (function generateEnableDisableAttributesFunc(){

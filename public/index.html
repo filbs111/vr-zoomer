@@ -112,10 +112,14 @@
         attribute vec3 aVertexPosition;
         varying vec3 vTextureCoord;
         
+        varying vec4 posCopy;
+
         void main(void) {
             vec3 invertedCoords = vec3(1.0,1.0,-1.0) * aVertexPosition; //todo handle this in vertex data, or change backface culling setting
             vec4 transformedCoord = uMVMatrix * vec4(invertedCoords, 1.0);
             gl_Position = uPMatrix * transformedCoord;
+
+            posCopy = transformedCoord;
 
             vTextureCoord = invertedCoords * uCmapScale*vec3(-1.,-1.,1.);
         }
@@ -126,8 +130,72 @@
         varying vec3 vTextureCoord;
         uniform samplerCube uSampler;
         
+        varying vec4 posCopy;
+
         void main(void) {
-            gl_FragColor = textureCube(uSampler, vTextureCoord);
+
+            //something to show depth
+            float scaledDepth = posCopy.z*40.0;
+            float depthRing = scaledDepth - floor(scaledDepth);
+
+            gl_FragColor = textureCube(uSampler, vTextureCoord)*vec4(vec3(depthRing),1.0);
+        }
+    </script>
+
+    <script id="shader-vertproj-cmap-vs" type="x-shader/x-vertex">
+    //want to project from screen space onto ellispoid
+    //take input position in screen space, scale by "squish" in zoom direction
+    //then have a direction in which want to project onto a unit sphere
+    //use the centre pos offset with this direction to calculate a projected position. undo the squish scaling to get true position.
+
+        //at this point should be able to confirm that the depth is as desired.
+
+    //then do the texture mapping by rotating the pre-unsquished co-ordinates by mvMatrix
+    
+
+    //input geometry can be sphere object. later can use grid object that just covers view.
+        uniform mat4 uPMatrix;
+
+        uniform vec3 uCentrePosScaled;  //"scaled" because from 3sphere code. in reality, here scale=1 so can remove "scaled"
+        uniform mat3 uStretchMatrix;    //can auto calculate this from stretchfactor, centrepos (implies stretch direction)
+        uniform mat3 uUnStretchMatrix;  //inverse of above. TODO calc in shader?
+
+        attribute vec3 aVertexPosition;
+
+        varying vec4 posCopy;
+
+        void main(void){
+            vec3 stretchedPosition = uStretchMatrix*aVertexPosition;
+            vec3 normalisedPosition = normalize(stretchedPosition);
+
+            //projection onto sphere, using vertproj code from 3sphere project. 
+            float csq = dot(uCentrePosScaled,uCentrePosScaled);
+            float cdotp = dot(uCentrePosScaled, -aVertexPosition);
+            float a = pow((1.0-csq)+cdotp*cdotp, 0.5) - cdotp;  //todo pow 0.5 = sqrt?
+            vec3 scaledVertexPosition = normalisedPosition*a;
+            vec3 aVertexPositionNormalized = normalize(scaledVertexPosition-uCentrePosScaled);  //TODO is normalize required here?	
+
+            vec3 preDeStretchedCoord = scaledVertexPosition;    // - uCentrePosScaled;  //or +?
+
+            vec4 transformedCoord = vec4( uUnStretchMatrix*preDeStretchedCoord, 1.);
+
+            gl_Position = uPMatrix * transformedCoord;
+            posCopy = transformedCoord;
+        }
+
+    </script>
+    <script id="shader-vertproj-cmap-fs" type="x-shader/x-fragment">
+        precision mediump float;
+        
+        varying vec4 posCopy;
+
+        void main(void) {
+
+            //something to show depth
+            float scaledDepth = posCopy.z*40.0;
+            float depthRing = scaledDepth - floor(scaledDepth);
+
+            gl_FragColor = vec4(vec3(depthRing),1.0);
         }
     </script>
 
