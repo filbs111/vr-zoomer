@@ -133,12 +133,10 @@
         varying vec4 posCopy;
 
         void main(void) {
+            vec3 scaledDepth = posCopy.xyz*vec3(4.);
+            vec3 depthRing = scaledDepth - floor(scaledDepth);
+            gl_FragColor = 0.75*textureCube(uSampler, vTextureCoord)+ 0.25*vec4(depthRing,1.0);
 
-            //something to show depth
-            float scaledDepth = posCopy.z*40.0;
-            float depthRing = scaledDepth - floor(scaledDepth);
-
-            gl_FragColor = textureCube(uSampler, vTextureCoord)*vec4(vec3(depthRing),1.0);
         }
     </script>
 
@@ -159,10 +157,14 @@
         uniform vec3 uCentrePosScaled;  //"scaled" because from 3sphere code. in reality, here scale=1 so can remove "scaled"
         uniform mat3 uStretchMatrix;    //can auto calculate this from stretchfactor, centrepos (implies stretch direction)
         uniform mat3 uUnStretchMatrix;  //inverse of above. TODO calc in shader?
+        uniform float uCmapscale;
+
+        uniform mat3 uTexRotateMatrix;
 
         attribute vec3 aVertexPosition;
 
         varying vec4 posCopy;
+        varying vec3 vTextureCoord;
 
         void main(void){
             vec3 stretchedPosition = uStretchMatrix*aVertexPosition;
@@ -173,11 +175,16 @@
             float cdotp = dot(uCentrePosScaled, -aVertexPosition);
             float a = pow((1.0-csq)+cdotp*cdotp, 0.5) - cdotp;  //todo pow 0.5 = sqrt?
             vec3 scaledVertexPosition = normalisedPosition*a;
-            vec3 aVertexPositionNormalized = normalize(scaledVertexPosition-uCentrePosScaled);  //TODO is normalize required here?	
+            vec3 aVertexPositionNormalized = normalize(scaledVertexPosition-uCentrePosScaled);
 
-            vec3 preDeStretchedCoord = scaledVertexPosition;    // - uCentrePosScaled;  //or +?
+            vec3 preDeStretchedCoord = aVertexPositionNormalized + uCentrePosScaled;  
+                    //note this gets a decent result, but wireframe looks peculiar at very high/low zoom. expected it to appear constant.
+                    // rounding error or mistake?
 
-            vec4 transformedCoord = vec4( uUnStretchMatrix*preDeStretchedCoord, 1.);
+            vec4 transformedCoord = vec4( uUnStretchMatrix*preDeStretchedCoord, 1.); 
+
+            vec3 preRotatedTexCoord = aVertexPositionNormalized; // + or -? 
+            vTextureCoord = (uTexRotateMatrix*preRotatedTexCoord) * vec3(-1.0,-1.0,1.0) * vec3(1.0,1.0,uCmapscale);    //currently uTexRotateMatrix = identity
 
             gl_Position = uPMatrix * transformedCoord;
             posCopy = transformedCoord;
@@ -186,16 +193,14 @@
     </script>
     <script id="shader-vertproj-cmap-fs" type="x-shader/x-fragment">
         precision mediump float;
-        
+        varying vec3 vTextureCoord;
+        uniform samplerCube uSampler;
         varying vec4 posCopy;
 
         void main(void) {
-
-            //something to show depth
-            float scaledDepth = posCopy.z*40.0;
-            float depthRing = scaledDepth - floor(scaledDepth);
-
-            gl_FragColor = vec4(vec3(depthRing),1.0);
+            vec3 scaledDepth = posCopy.xyz*vec3(4.);
+            vec3 depthRing = scaledDepth - floor(scaledDepth);
+            gl_FragColor = 0.75*textureCube(uSampler, vTextureCoord)+ 0.25*vec4(depthRing,1.0);
         }
     </script>
 

@@ -652,6 +652,9 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 
 			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uStretchMatrix, false, scaleMat2);		//TODO
 			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uUnStretchMatrix, false, scaleMat);	//TODO
+			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uTexRotateMatrix, false, mat3.identity());	//TODO
+			gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
+			gl.uniform1f(activeShaderProgram.uniforms.uCmapscale,currentCubemapScale);
 
 			gl.disable(gl.CULL_FACE);	//TODO invert sphere?
 			if (guiParams.wireframe){
@@ -713,7 +716,7 @@ var guiParams = {
 	autoScale:true,
 	viewShiftZAngle:0,
 	centreZoom:1,
-	zoomDirection:"cockpit",
+	zoomDirection:"headset",
 	holdZoomMagFactor:4,
 	stabilisation:1,	//1= fixed, 0=responds to movement without smoothing
 	sideLook:0,
@@ -748,7 +751,7 @@ var iterateMechanics = (function iterateMechanics(){
 	var timeStepMultiplier = timeStep/50;	//because stepSpeed initially tuned for timeStep=10;
     var angVelDampMultiplier=Math.pow(0.9, timeStep/10);
 
-    var thrust = 0.01*timeStep;	//TODO make keyboard/gamepad fair! currently thrust, moveSpeed config independent!
+    var thrust = 0.05*timeStep;	//TODO make keyboard/gamepad fair! currently thrust, moveSpeed config independent!
 
     var currentThrustInput = [0,0,0];
     var currentRotateInput=[];
