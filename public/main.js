@@ -609,6 +609,11 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 		if (doSidelook){
 			mat4.rotate(mvMatrix,  guiParams.sideLook, vec3.create([0,1,0]));
 		}
+
+		var relativeLookMat = mat4.create(mvMatrix);
+		var invRelativeLookMat = mat4.create(relativeLookMat)
+		mat4.inverse(invRelativeLookMat);
+
 		//simple translation by -1 gets stereographic angle preserving projection on screen
 		//however, want to get view that's angle preserving when viewed at the set pMatrix FOV. to do this, scale view.
 		
@@ -639,7 +644,12 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 			activeShaderProgram = shaderPrograms.vertProj;
 			gl.useProgram(activeShaderProgram);
 
-			var centrePos = [0,0,adjustedViewShiftZ];		//position of sphere centre in camera frame (or -ve this?)
+			//centrePos is in direction suspect will come from some row/column of relativeLookMat
+			//var lookDirection = [relativeLookMat[2], relativeLookMat[5],relativeLookMat[8]];	//guess one of these
+			var lookDirection = [relativeLookMat[8], relativeLookMat[9],relativeLookMat[10]];
+			
+			var centrePos = lookDirection.map(x=>x*adjustedViewShiftZ);		
+			//var centrePos = [0,0,adjustedViewShiftZ];		//position of sphere centre in camera frame (or -ve this?)
 									//TODO proper value, but in simple cases, (zoom in headset direction) is just in z-direction
 
 		//	gl.uniform3fv(activeShaderProgram.uniforms.uCentrePosScaled, [0,0,0]);			//TODO
@@ -650,9 +660,26 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 			var scaleMat2 = mat3.identity();
 			scaleMat2[8]=1/scaleFactor;
 
-			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uStretchMatrix, false, scaleMat2);		//TODO
-			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uUnStretchMatrix, false, scaleMat);	//TODO
-			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uTexRotateMatrix, false, mat3.identity());	//TODO
+			//rotation between zoom matrix and current view. (?)
+			var invTexRotateMatrix = makeMat3FromMat4(invRelativeLookMat);
+			var texRotateMatrix = makeMat3FromMat4(relativeLookMat);
+
+			//NOTE suspect can get rid of much code if allow object to rotate - can do if keep closed object (like sphere).
+			//might want texRotateMatrix = identity, so simple scale mats, but then cubemap should be scaled by matrix not vector
+
+			//rotate scale mats. possible to simplify?
+			var directedScaleMat = mat3.create(texRotateMatrix);
+			mat3.multiply(directedScaleMat, scaleMat);
+			mat3.multiply(directedScaleMat, invTexRotateMatrix);
+			
+			var directedScaleMat2 = mat3.create(texRotateMatrix);
+			mat3.multiply(directedScaleMat2, scaleMat2);
+			mat3.multiply(directedScaleMat2, invTexRotateMatrix);
+
+			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uStretchMatrix, false, directedScaleMat2);		//TODO
+			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uUnStretchMatrix, false, directedScaleMat);	//TODO
+
+			gl.uniformMatrix3fv(activeShaderProgram.uniforms.uTexRotateMatrix, false, invTexRotateMatrix);
 			gl.uniform1i(activeShaderProgram.uniforms.uSampler, 1);
 			gl.uniform1f(activeShaderProgram.uniforms.uCmapscale,currentCubemapScale);
 
@@ -667,8 +694,6 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 
 		}
 
-
-
 	}
 
 	function renderViewNoCmap(extraViewMat, positionShift){
@@ -678,6 +703,17 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 	//	drawWorldScene(-1);
 		drawWorldScene(extraViewMat, -1, positionShift);		
 	}
+}
+
+function makeMat3FromMat4(sourceMat4){	//glmatrix docs claim there is a method to get a mat3 from a mat4, but cannot find.
+										//looks like available docs are for version 2.
+	var destMat3 = mat3.create();	//todo reuse some matrix
+	for (var ii=0;ii<3;ii++){
+		for (var jj=0;jj<3;jj++){
+			destMat3[ii*3+jj] = sourceMat4[ii*4+jj];
+		}
+	}
+	return destMat3;
 }
 
 function rotateCameraForFace(ii){
