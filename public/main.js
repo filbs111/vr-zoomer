@@ -259,7 +259,7 @@ function initBuffers(){
 	loadBufferData(cubeBuffers, levelCubeData);
 	loadBufferData(sphereBuffers, makeSphereData(8,16,1));
 	//loadBufferData(sphereBuffersHiRes, makeSphereData(127,255,1)); //near index limit 65536.
-	loadBufferData(sphereBuffersHiRes, makeSphereData(64,128,1));
+	loadBufferData(sphereBuffersHiRes, makeSphereData(50,100,1));
 
     function loadBufferData(bufferObj, sourceData){
 		bufferObj.vertexPositionBuffer = gl.createBuffer();
@@ -754,7 +754,7 @@ var guiParams = {
 	centreZoom:1,
 	zoomDirection:"headset",
 	holdZoomMagFactor:4,
-	stabilisation:1,	//1= fixed, 0=responds to movement without smoothing
+	stabilisation:0.5,	//1= fixed, 0=responds to movement without smoothing
 	sideLook:0,
 	stereoSeparation:0.01,
 	drawCircles:true,
@@ -764,7 +764,7 @@ var guiParams = {
 
 						//TODO auto adjustment with zoom
 						//TODO follow zoom direction (currently assumes zoom aligned with cockpit)
-	drawChequers:true,
+	drawChequers:false,
 	wireframe:false,
 	useOtherShader:true
 }
@@ -853,7 +853,7 @@ var iterateMechanics = (function iterateMechanics(){
 				var rotationAmount = Math.atan2(Math.hypot(tmpMat[8],tmpMat[9]), tmpMat[10]);
 				guiTestMatrix.controllers[16].setValue(rotationAmount);
 
-				rotationAmount*= Math.pow(guiParams.stabilisation, 0.001);	//simple stabilisation <1: multiply this by stabilisation^somePower
+				rotationAmount*= Math.pow(guiParams.stabilisation, 0.01);	//simple stabilisation <1: multiply this by stabilisation^somePower
 				
 				mat4.set(leftView, lockedViewMat);	//copies leftView into lockedViewMat
 				mat4.inverse(lockedViewMat);
