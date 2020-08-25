@@ -75,6 +75,20 @@
         }
     </script>
 
+    <script id="shader-twotex-fs" type="x-shader/x-fragment">    
+            //double textures. inefficient- better to premulitiply
+        precision mediump float;
+        uniform vec4 uColor;
+        uniform sampler2D uSampler;
+        uniform sampler2D uSampler2;
+        varying vec2 vTextureCoord;
+        varying float light;
+        
+        void main(void) {
+            gl_FragColor = uColor * texture2D(uSampler, vTextureCoord) * texture2D(uSampler2, vTextureCoord*8.0) * vec4( vec3(light), 1.0);
+        }
+    </script>
+
 
     <script id="shader-fullscreen-vs" type="x-shader/x-vertex">
         attribute vec3 aVertexPosition;
@@ -190,20 +204,6 @@
         }
 
     </script>
-    <script id="shader-vertproj-cmap-fs" type="x-shader/x-fragment">
-        precision mediump float;
-        varying vec3 vTextureCoord;
-        uniform samplerCube uSampler;
-        varying vec4 posCopy;
-
-        void main(void) {
-            //vec3 scaledDepth = posCopy.xyz*vec3(4.);
-            //vec3 depthRing = scaledDepth - floor(scaledDepth);
-            //gl_FragColor = 0.75*textureCube(uSampler, vTextureCoord)+ 0.25*vec4(depthRing,1.0);
-            gl_FragColor = textureCube(uSampler, vTextureCoord);
-        }
-    </script>
-
 
     <script src='main.js'></script>
 

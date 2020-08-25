@@ -78,7 +78,7 @@ function init(){
 }
 
 function initShaders(){
-    shaderPrograms.basic = loadShader("shader-simple-vs", "shader-simple-fs");
+    shaderPrograms.basic = loadShader("shader-simple-vs", "shader-twotex-fs");
     shaderPrograms.fullscreenChequer = loadShader( "shader-fullscreen-vs", "shader-fullscreen-chequer-fs");
     shaderPrograms.simpleCubemap = loadShader( "shader-simple-cmap-vs", "shader-simple-cmap-fs");
 	shaderPrograms.noTex = loadShader( "shader-notex-vs", "shader-notex-fs");
@@ -90,10 +90,11 @@ function completeShaders(){
 }
 
 var texture;
+var texture2;
 var textTexture;
 var canvasTexture;
 function initTexture(){
-//	texture = makeTexture("img/0033.jpg");
+	texture2 = makeTexture("img/0033.jpg");
 	
 	canvasTexture = (function(textureSize){
 		var textCanvas = document.createElement("canvas");
@@ -359,7 +360,11 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
     gl.useProgram(activeShaderProgram);
 
     bind2dTextureIfRequired(texture);		//currently could just keep this bound
-    gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
+	gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
+	
+	bind2dTextureIfRequired(texture2, gl.TEXTURE2);
+    gl.uniform1i(activeShaderProgram.uniforms.uSampler2, 2);
+
 
     var boxScale = 0.1;
     gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [boxScale,boxScale,boxScale]);
