@@ -82,7 +82,7 @@ function initShaders(){
     shaderPrograms.fullscreenChequer = loadShader( "shader-fullscreen-vs", "shader-fullscreen-chequer-fs");
     shaderPrograms.simpleCubemap = loadShader( "shader-simple-cmap-vs", "shader-simple-cmap-fs");
 	shaderPrograms.noTex = loadShader( "shader-notex-vs", "shader-notex-fs");
-	shaderPrograms.vertProj = loadShader( "shader-vertproj-cmap-vs", "shader-vertproj-cmap-fs");
+	shaderPrograms.vertProj = loadShader( "shader-vertproj-cmap-vs", "shader-simple-cmap-fs");
 }
 
 function completeShaders(){

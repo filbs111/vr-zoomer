@@ -129,14 +129,13 @@
         precision mediump float;
         varying vec3 vTextureCoord;
         uniform samplerCube uSampler;
-        
         varying vec4 posCopy;
 
         void main(void) {
-            vec3 scaledDepth = posCopy.xyz*vec3(4.);
-            vec3 depthRing = scaledDepth - floor(scaledDepth);
-            gl_FragColor = 0.75*textureCube(uSampler, vTextureCoord)+ 0.25*vec4(depthRing,1.0);
-
+            //vec3 scaledDepth = posCopy.xyz*vec3(4.);
+            //vec3 depthRing = scaledDepth - floor(scaledDepth);
+            //gl_FragColor = 0.75*textureCube(uSampler, vTextureCoord)+ 0.25*vec4(depthRing,1.0);
+            gl_FragColor = textureCube(uSampler, vTextureCoord);
         }
     </script>
 
@@ -198,9 +197,10 @@
         varying vec4 posCopy;
 
         void main(void) {
-            vec3 scaledDepth = posCopy.xyz*vec3(4.);
-            vec3 depthRing = scaledDepth - floor(scaledDepth);
-            gl_FragColor = 0.75*textureCube(uSampler, vTextureCoord)+ 0.25*vec4(depthRing,1.0);
+            //vec3 scaledDepth = posCopy.xyz*vec3(4.);
+            //vec3 depthRing = scaledDepth - floor(scaledDepth);
+            //gl_FragColor = 0.75*textureCube(uSampler, vTextureCoord)+ 0.25*vec4(depthRing,1.0);
+            gl_FragColor = textureCube(uSampler, vTextureCoord);
         }
     </script>
 
