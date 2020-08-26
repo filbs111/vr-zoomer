@@ -44,6 +44,7 @@ function init(){
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
 	gui.add(guiParams, "drawCircles");
+	gui.add(guiParams, "drawSnellenChart");
 	gui.add(guiParams, "autoScale");	//todo onchange grey out cubemapScale if true
 	gui.add(guiParams, "tempCubemapScale", 0.1, 2.0, 0.05);
 	gui.add(guiParams, "drawChequers");
@@ -78,7 +79,8 @@ function init(){
 }
 
 function initShaders(){
-    shaderPrograms.basic = loadShader("shader-simple-vs", "shader-twotex-fs");
+    shaderPrograms.onetex = loadShader("shader-simple-vs", "shader-simple-fs");
+    shaderPrograms.twotex = loadShader("shader-simple-vs", "shader-twotex-fs");
     shaderPrograms.fullscreenChequer = loadShader( "shader-fullscreen-vs", "shader-fullscreen-chequer-fs");
     shaderPrograms.simpleCubemap = loadShader( "shader-simple-cmap-vs", "shader-simple-cmap-fs");
 	shaderPrograms.noTex = loadShader( "shader-notex-vs", "shader-notex-fs");
@@ -91,11 +93,13 @@ function completeShaders(){
 
 var texture;
 var texture2;
+var textureSnellen;
 var textTexture;
 var canvasTexture;
 function initTexture(){
 	texture2 = makeTexture("img/0033.jpg");
-	
+	textureSnellen = makeTexture("img/snellen_chart_1024.png");
+
 	canvasTexture = (function(textureSize){
 		var textCanvas = document.createElement("canvas");
 		textCanvas.width = textureSize;
@@ -356,10 +360,10 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 
 	mat4.inverse(mvMatrix);
 
-    activeShaderProgram = shaderPrograms.basic;
+    activeShaderProgram = shaderPrograms.twotex;
     gl.useProgram(activeShaderProgram);
 
-    bind2dTextureIfRequired(texture);		//currently could just keep this bound
+    bind2dTextureIfRequired(texture);
 	gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
 	
 	bind2dTextureIfRequired(texture2, gl.TEXTURE2);
@@ -395,9 +399,30 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 		gl.depthMask(true);
 	}
 
+
+	if (guiParams.drawSnellenChart){
+		activeShaderProgram = shaderPrograms.onetex;
+		gl.useProgram(activeShaderProgram);
+		bind2dTextureIfRequired(textureSnellen);
+		gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
+		prepBuffersForDrawing(cubeBuffers, activeShaderProgram);
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [0.06997,0.08721,0.0001]);	//TODO simple quad for efficiency
+		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,1,1]);	//white
+		mat4.set(extraViewMat, mvMatrix);	//TODO tidy up matrix mess!!
+		mat4.inverse(mvMatrix);
+		//extra scaling for cubemap only (temp - should do this a better way)
+		if (camNum != -1){
+			mat4.scale(mvMatrix, tmpCubemapScale);
+		}
+		rotateCameraForFace(camNum);
+		mat4.inverse(mvMatrix);
+		mat4.translate(mvMatrix, vec3.create([0,0,-2]));	//straight ahead . note that because no binocular difference, appears to be at infinity
+		drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
+	}
+
 	if (!guiParams.drawCircles){return;}	//save a lot of draw calls.
 
-	var activeShaderProgram = shaderPrograms.noTex;
+	activeShaderProgram = shaderPrograms.noTex;
     gl.useProgram(activeShaderProgram);
 	prepBuffersForDrawing(sphereBuffers, activeShaderProgram);
 
@@ -767,7 +792,8 @@ var guiParams = {
 	stabilisation:0.5,	//1= fixed, 0=responds to movement without smoothing
 	sideLook:0,
 	stereoSeparation:0.01,
-	drawCircles:true,
+	drawCircles:false,
+	drawSnellenChart:true,
 	tempCubemapScale:1,	//stretch cubemap so forward view frustrum can be tighter for high zoom etc.
 						//TODO rear frustum should expand when forward tightens and vice versa, 
 						// but simple scaling should get decent pixel scale matching in centre of screen.

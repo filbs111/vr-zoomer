@@ -1,0 +1,19 @@
+after imagemagick convert, size = 1303x1624
+
+according to https://en.wikipedia.org/wiki/Snellen_chart
+
+"Visual acuity = Distance at which test is made / distance at which the smallest optotype identified subtends an angle of five arcminutes.[citation needed]"
+
+. AFAICT, 20/20 line should be presented like this - ie, subtending angle of 5 arcminutes.
+
+5 arcminutes = 5/60 degrees => 0.00145 radians.
+
+therefore height of these letters should be distance to chart * 0.00145
+
+the height of these letters = 28px, but hard to read. see that 20/200 at 270px . half this = 27px, guess more accurate measure.
+
+entire chart = 
+
+1303x1624  * 0.00145/27  =  0.06997 x 0.08721
+
+if place chart 2 away and scale 2x2x2 box (from -1 to 1) by these numbers, expect to look right
