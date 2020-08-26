@@ -417,12 +417,17 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	rotateCameraForFace(camNum);
 	mat4.inverse(mvMatrix);
 
-	mat4.translate(mvMatrix, vec3.create([0,0,-0.1]));	//straight ahead
+	//make balls at distance such that appear ~ same size as moon in sky.
+	//moon's radius ~ 0.45% of distance to moon.
+	var distAway = miniBoxScale/0.0045;	//0.22
+	var distAway45deg = distAway*Math.sqrt(0.5);
+
+	mat4.translate(mvMatrix, vec3.create([0,0,-distAway]));	//straight ahead
 	drawObjectFromPreppedBuffers(sphereBuffers, activeShaderProgram);
 
-	drawBallRing([0,0,1,1], 10, 0.1, 0);			//blue, splitting front, back
-	drawBallRing([1,0.5,0,1], 20, 0.07, 0.07);	//orange, 45 deg in front
-	drawBallRing([1,0.5,0,1], 20, 0.07, -0.07);	//orange, 45 deg behind
+	drawBallRing([0,0,1,1], 10, distAway, 0);			//blue, splitting front, back
+	drawBallRing([1,0.5,0,1], 20, distAway45deg, distAway45deg);	//orange, 45 deg in front
+	drawBallRing([1,0.5,0,1], 20, distAway45deg, -distAway45deg);	//orange, 45 deg behind
 
 	function drawBallRing(color, angstep, side, front){
 		gl.uniform4fv(activeShaderProgram.uniforms.uColor, color);
