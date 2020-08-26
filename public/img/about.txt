@@ -17,3 +17,20 @@ entire chart =
 1303x1624  * 0.00145/27  =  0.06997 x 0.08721
 
 if place chart 2 away and scale 2x2x2 box (from -1 to 1) by these numbers, expect to look right
+
+
+number plate
+------------
+
+85px tall letters, from image 520x111
+
+https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/878990/vehicle-registration-numbers-and-number-plates-inf104.pdf
+
+states letters should be 79mm tall
+
+test is at 20m.
+https://www.gov.uk/driving-eyesight-rules
+
+image dimensions in real units, should be 79mm*( {520x111}/85) = {483x103}mm
+
+to get right angular resolution, at 4 units away from viewer, scale 2x2x2 cube by 0.0483x0.0103

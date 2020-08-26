@@ -45,6 +45,7 @@ function init(){
 	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
 	gui.add(guiParams, "drawCircles");
 	gui.add(guiParams, "drawSnellenChart");
+	gui.add(guiParams, "drawNumberPlate");
 	gui.add(guiParams, "autoScale");	//todo onchange grey out cubemapScale if true
 	gui.add(guiParams, "tempCubemapScale", 0.1, 2.0, 0.05);
 	gui.add(guiParams, "drawChequers");
@@ -94,11 +95,13 @@ function completeShaders(){
 var texture;
 var texture2;
 var textureSnellen;
+var textureNumberPlate;
 var textTexture;
 var canvasTexture;
 function initTexture(){
 	texture2 = makeTexture("img/0033.jpg");
 	textureSnellen = makeTexture("img/snellen_chart_1024.png");
+	textureNumberPlate = makeTexture("img/british_car_registration_plate_no_EU_512_128.png");
 
 	canvasTexture = (function(textureSize){
 		var textCanvas = document.createElement("canvas");
@@ -401,12 +404,20 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 
 
 	if (guiParams.drawSnellenChart){
+		drawPlaneObject(textureSnellen, [0,0,-2], [0.06997,0.08721,0.00001]);
+	}
+
+	if (guiParams.drawNumberPlate){
+		drawPlaneObject(textureNumberPlate, [0,-0.2,-4], [0.0483,0.0103,0.00001]);	//moved down a litte below snellen. (number plate reading test @20m)
+	}
+
+	function drawPlaneObject(tex, pos, scale){
 		activeShaderProgram = shaderPrograms.onetex;
 		gl.useProgram(activeShaderProgram);
-		bind2dTextureIfRequired(textureSnellen);
+		bind2dTextureIfRequired(tex);
 		gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
 		prepBuffersForDrawing(cubeBuffers, activeShaderProgram);
-		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [0.06997,0.08721,0.0001]);	//TODO simple quad for efficiency
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, scale);	//TODO simple quad for efficiency
 		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,1,1]);	//white
 		mat4.set(extraViewMat, mvMatrix);	//TODO tidy up matrix mess!!
 		mat4.inverse(mvMatrix);
@@ -416,9 +427,10 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 		}
 		rotateCameraForFace(camNum);
 		mat4.inverse(mvMatrix);
-		mat4.translate(mvMatrix, vec3.create([0,0,-2]));	//straight ahead . note that because no binocular difference, appears to be at infinity
+		mat4.translate(mvMatrix, vec3.create(pos));	//straight ahead . note that because no binocular difference, appears to be at infinity
 		drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
 	}
+
 
 	if (!guiParams.drawCircles){return;}	//save a lot of draw calls.
 
@@ -794,6 +806,7 @@ var guiParams = {
 	stereoSeparation:0.01,
 	drawCircles:false,
 	drawSnellenChart:true,
+	drawNumberPlate:true,
 	tempCubemapScale:1,	//stretch cubemap so forward view frustrum can be tighter for high zoom etc.
 						//TODO rear frustum should expand when forward tightens and vice versa, 
 						// but simple scaling should get decent pixel scale matching in centre of screen.
