@@ -261,6 +261,7 @@ var fsBuffers={};
 var cubeBuffers={};
 var sphereBuffers={};
 var sphereBuffersHiRes={};
+var aeroplaneBuffers={};
 
 function initBuffers(){
     loadBufferData(fsBuffers, fsData);
@@ -268,6 +269,8 @@ function initBuffers(){
 	loadBufferData(sphereBuffers, makeSphereData(8,16,1));
 	//loadBufferData(sphereBuffersHiRes, makeSphereData(127,255,1)); //near index limit 65536.
 	loadBufferData(sphereBuffersHiRes, makeSphereData(50,100,1));
+
+	loadBuffersFromObjFile(aeroplaneBuffers, "./data/a10ish2.obj", loadBufferData);
 
     function loadBufferData(bufferObj, sourceData){
 		bufferObj.vertexPositionBuffer = gl.createBuffer();
@@ -297,6 +300,8 @@ function initBuffers(){
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(sourceData.indices), gl.STATIC_DRAW);
 		bufferObj.vertexIndexBuffer.itemSize = 3;
 		bufferObj.vertexIndexBuffer.numItems = sourceData.indices.length;
+
+		bufferObj.isLoaded=true;
 	}
 }
 function bufferArrayData(buffer, arr, size){
@@ -373,11 +378,35 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
     gl.uniform1i(activeShaderProgram.uniforms.uSampler2, 2);
 
 
-    var boxScale = 0.1;
-    gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [boxScale,boxScale,boxScale]);
-    gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,0,0,1]);
+	//draw plane
+    var planeScale = 0.01;
+	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [planeScale,planeScale,planeScale]);
+	gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,0.5,0.25,1]);
+
+	var storedMat = mat4.create(mvMatrix);	//TODO don't keep creating new objects!
+
+	var turnAmount = Date.now()*0.0002;	//TODO get time of requestAnimationFrame. currently maybe different time per eye.
+	mat4.rotateY(mvMatrix, turnAmount);	//turn
+	mat4.translate(mvMatrix, vec3.create([8,0,0]));
+	mat4.rotateZ(mvMatrix, Math.PI/6);	//bank left
+
+	if (aeroplaneBuffers.isLoaded){
+		prepBuffersForDrawing(aeroplaneBuffers, activeShaderProgram);
+		drawObjectFromPreppedBuffers(aeroplaneBuffers, activeShaderProgram);
+	}
+	mat4.set(storedMat, mvMatrix);	//note counterintuitive function. copies a into b
 
     prepBuffersForDrawing(cubeBuffers, activeShaderProgram);
+	
+	var bigBoxScale = 10;
+	gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,1,1]);	//white
+	// mat4.scale(mvMatrix, vec3.create([-100,-100,-100]));	//big inverted box. 
+	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [-bigBoxScale,-bigBoxScale,-bigBoxScale]);
+	drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
+	
+    var boxScale = 0.1;
+	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [boxScale,boxScale,boxScale]);
+	gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,0,0,1]);
     var moveVec = vec3.create([0,0,0.5]);
     for (var xx=0;xx<10;xx++){
         drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
@@ -385,9 +414,6 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
         drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
 	}
 	
-	gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,1,1]);	//white
-	mat4.scale(mvMatrix, vec3.create([-100,-100,-100]));	//big inverted box. 
-	drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
 
 	if (camNum!=-1 && guiParams.drawChequers){
 		gl.enable(gl.BLEND);
@@ -799,14 +825,14 @@ var guiParams = {
 	autoScale:true,
 	viewShiftZAngle:0,
 	centreZoom:1,
-	zoomDirection:"headset",
+	zoomDirection:"headset, lock zoom",
 	holdZoomMagFactor:4,
 	stabilisation:0.5,	//1= fixed, 0=responds to movement without smoothing
 	sideLook:0,
 	stereoSeparation:0.01,
 	drawCircles:false,
-	drawSnellenChart:true,
-	drawNumberPlate:true,
+	drawSnellenChart:false,
+	drawNumberPlate:false,
 	tempCubemapScale:1,	//stretch cubemap so forward view frustrum can be tighter for high zoom etc.
 						//TODO rear frustum should expand when forward tightens and vice versa, 
 						// but simple scaling should get decent pixel scale matching in centre of screen.
