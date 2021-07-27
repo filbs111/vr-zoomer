@@ -411,8 +411,9 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
     for (var xx=0;xx<10;xx++){
         drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
         mat4.translate(mvMatrix, moveVec);
-        drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
 	}
+
+
 	
 
 	if (camNum!=-1 && guiParams.drawChequers){
