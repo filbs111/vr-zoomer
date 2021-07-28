@@ -266,6 +266,7 @@ var sphereBuffers={};
 var sphereBuffersHiRes={};
 var aeroplaneBuffers={};
 var carBuffers={};
+var helicopterBuffers={};
 
 function initBuffers(){
     loadBufferData(fsBuffers, fsData);
@@ -276,6 +277,7 @@ function initBuffers(){
 
 	loadBuffersFromObjFile(aeroplaneBuffers, "./data/a10ish2.obj", loadBufferData);
 	loadBuffersFromObjFile(carBuffers, "./data/mpv2-scaledcentred.obj", loadBufferData);
+	loadBuffersFromObjFile(helicopterBuffers, "./data/ah64-centred-.obj", loadBufferData);
 
     function loadBufferData(bufferObj, sourceData){
 		bufferObj.vertexPositionBuffer = gl.createBuffer();
@@ -427,6 +429,19 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 		}
 		mat4.set(storedMat, mvMatrix);	//note counterintuitive function. copies a into b
 	}
+
+	if (helicopterBuffers.isLoaded){
+		var sshipScale = 0.1;
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [sshipScale,sshipScale,sshipScale]);
+		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [0.25,0.25,0.25,1]);
+		mat4.translate(mvMatrix, vec3.create([-2,-20,0]));
+		prepBuffersForDrawing(helicopterBuffers, activeShaderProgram);
+		mat4.rotateY(mvMatrix, -Math.PI/2);
+		drawObjectFromPreppedBuffers(helicopterBuffers, activeShaderProgram);
+		mat4.translate(mvMatrix, vec3.create([2,20,0]));
+		mat4.set(storedMat, mvMatrix);
+	}
+
 	
 	//draw car
 	if (carBuffers.isLoaded){
