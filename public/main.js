@@ -275,7 +275,8 @@ function initBuffers(){
 	//loadBufferData(sphereBuffersHiRes, makeSphereData(127,255,1)); //near index limit 65536.
 	loadBufferData(sphereBuffersHiRes, makeSphereData(50,100,1));
 
-	loadBuffersFromObjFile(aeroplaneBuffers, "./data/a10ish2.obj", loadBufferData);
+	// loadBuffersFromObjFile(aeroplaneBuffers, "./data/a10ish2.obj", loadBufferData);
+	loadBuffersFromObjFile(aeroplaneBuffers, "./data/T-50 Jet Fighter-1.obj?t="+Date.now(), loadBufferData);
 	loadBuffersFromObjFile(carBuffers, "./data/mpv2-scaledcentred.obj", loadBufferData);
 	loadBuffersFromObjFile(helicopterBuffers, "./data/ah64-centred-.obj", loadBufferData);
 
@@ -392,14 +393,15 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	if (aeroplaneBuffers.isLoaded){
 
 		bind2dTextureIfRequired(texture2);	//use basic texture for plane
-		var planeScale = 0.08;
+		// var planeScale = 0.08;
+		var planeScale = 0.2;
 		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [planeScale,planeScale,planeScale]);
-		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [0.8,1,0.4,1]);
+		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1.5,1.5,1.5,1]);
 
 		prepBuffersForDrawing(aeroplaneBuffers, activeShaderProgram);
 
 		//one on the ground
-		mat4.translate(mvMatrix, vec3.create([2,-19.8,0]));
+		mat4.translate(mvMatrix, vec3.create([2,-20,0]));
 		drawObjectFromPreppedBuffers(aeroplaneBuffers, activeShaderProgram);
 
 		var numplanes = 10;
