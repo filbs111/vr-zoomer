@@ -42,7 +42,7 @@ function init(){
 	gui.add(guiParams, "stabilisation",0,1,0.1);	//applies to headset, lock zoom. TODO apply to headset standard
 
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
-	gui.add(guiParams, "stereoSeparation", 0,0.02,0.001);
+	gui.add(guiParams, "stereoSeparation", 0,0.005,0.0001);	//half eye separation, 1 unit = 10m
 	gui.add(guiParams, "drawCircles");
 	gui.add(guiParams, "drawSnellenChart");
 	gui.add(guiParams, "drawNumberPlate");
@@ -262,6 +262,7 @@ var cubeBuffers={};
 var sphereBuffers={};
 var sphereBuffersHiRes={};
 var aeroplaneBuffers={};
+var carBuffers={};
 
 function initBuffers(){
     loadBufferData(fsBuffers, fsData);
@@ -271,6 +272,7 @@ function initBuffers(){
 	loadBufferData(sphereBuffersHiRes, makeSphereData(50,100,1));
 
 	loadBuffersFromObjFile(aeroplaneBuffers, "./data/a10ish2.obj", loadBufferData);
+	loadBuffersFromObjFile(carBuffers, "./data/mpv2-scaledcentred.obj", loadBufferData);
 
     function loadBufferData(bufferObj, sourceData){
 		bufferObj.vertexPositionBuffer = gl.createBuffer();
@@ -371,34 +373,74 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
     activeShaderProgram = shaderPrograms.twotex;
     gl.useProgram(activeShaderProgram);
 
-    bind2dTextureIfRequired(texture);
-	gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
 	
 	bind2dTextureIfRequired(texture2, gl.TEXTURE2);
     gl.uniform1i(activeShaderProgram.uniforms.uSampler2, 2);
 
+	
+	gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
+	
 
+	
+	
 	//draw plane
-    var planeScale = 0.01;
-	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [planeScale,planeScale,planeScale]);
-	gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,0.5,0.25,1]);
-
-	var storedMat = mat4.create(mvMatrix);	//TODO don't keep creating new objects!
-
-	var turnAmount = Date.now()*0.0002;	//TODO get time of requestAnimationFrame. currently maybe different time per eye.
-	mat4.rotateY(mvMatrix, turnAmount);	//turn
-	mat4.translate(mvMatrix, vec3.create([8,0,0]));
-	mat4.rotateZ(mvMatrix, Math.PI/6);	//bank left
-
 	if (aeroplaneBuffers.isLoaded){
+		var storedMat = mat4.create(mvMatrix);	//TODO don't keep creating new objects!
+
+		bind2dTextureIfRequired(texture2);	//use basic texture for plane
+		var planeScale = 0.08;
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [planeScale,planeScale,planeScale]);
+		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [0.8,1,0.4,1]);
+
 		prepBuffersForDrawing(aeroplaneBuffers, activeShaderProgram);
+
+		//one on the ground
+		mat4.translate(mvMatrix, vec3.create([2,-19.8,0]));
 		drawObjectFromPreppedBuffers(aeroplaneBuffers, activeShaderProgram);
+
+		//one in the air
+		var turnAmount = Date.now()*0.0004;	//TODO get time of requestAnimationFrame. currently maybe different time per eye.
+		mat4.rotateY(mvMatrix, turnAmount);	//turn
+		mat4.translate(mvMatrix, vec3.create([16,2,0]));
+		mat4.rotateZ(mvMatrix, Math.PI/6);	//bank left
+
+		//speed of plane? radius * 1000 (ms per second) * 0.0004 = radius*0.4
+		//radius = 16*10 (10m = 1 unit) . => 64m/s = 143mph (just above stall speed for a10)
+
+		drawObjectFromPreppedBuffers(aeroplaneBuffers, activeShaderProgram);
+		mat4.set(storedMat, mvMatrix);	//note counterintuitive function. copies a into b
 	}
+	
+	//draw car
+	if (carBuffers.isLoaded){
+		var carScale = 0.1;	//make car quite big so can conveniently get inside it. (note inconsistent scale with plane)
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [carScale,carScale,carScale]);
+		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [0.8,1,1,1]);
+		// mat4.translate(mvMatrix, vec3.create([0,-10.29,0]));
+		mat4.translate(mvMatrix, vec3.create([0,-20,0]));
+		prepBuffersForDrawing(carBuffers, activeShaderProgram);
+		drawObjectFromPreppedBuffers(carBuffers, activeShaderProgram);
+		mat4.translate(mvMatrix, vec3.create([0,0,-2]));	//one tenth scale. 2 = 20m
+		drawObjectFromPreppedBuffers(carBuffers, activeShaderProgram);
+
+		//put a number plate on the second car
+		bind2dTextureIfRequired(textureNumberPlate);
+		prepBuffersForDrawing(cubeBuffers, activeShaderProgram);
+
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [0.5*0.0483,0.5*0.0103,0.0005]);	//TODO simple quad for efficiency
+		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,1,1]);	//white
+		// mat4.translate(mvMatrix, vec3.create([-0.345,0.46,0.34]));	//sideways, up, back
+		mat4.translate(mvMatrix, vec3.create([0,0.0893,0.2677]));	//sideways, up, back
+		drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
+	}
+
 	mat4.set(storedMat, mvMatrix);	//note counterintuitive function. copies a into b
+
+    bind2dTextureIfRequired(texture);	//use other texture for boxes
 
     prepBuffersForDrawing(cubeBuffers, activeShaderProgram);
 	
-	var bigBoxScale = 10;
+	var bigBoxScale = 20;
 	gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,1,1]);	//white
 	// mat4.scale(mvMatrix, vec3.create([-100,-100,-100]));	//big inverted box. 
 	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [-bigBoxScale,-bigBoxScale,-bigBoxScale]);
@@ -830,7 +872,7 @@ var guiParams = {
 	holdZoomMagFactor:4,
 	stabilisation:0.5,	//1= fixed, 0=responds to movement without smoothing
 	sideLook:0,
-	stereoSeparation:0.01,
+	stereoSeparation:0.0033,	//~6.6cm separation. approx human
 	drawCircles:false,
 	drawSnellenChart:false,
 	drawNumberPlate:false,
