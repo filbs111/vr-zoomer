@@ -97,12 +97,14 @@ var texture;
 var texture2;
 var textureSnellen;
 var textureNumberPlate;
+var textureRadio;
 var textTexture;
 var canvasTexture;
 function initTexture(){
 	texture2 = makeTexture("img/0033.jpg");
 	textureSnellen = makeTexture("img/snellen_chart_1024.png");
 	textureNumberPlate = makeTexture("img/british_car_registration_plate_no_EU_512_128.png");
+	textureRadio = makeTexture("img/carradio-crop-resized.png");
 
 	canvasTexture = (function(textureSize){
 		var textCanvas = document.createElement("canvas");
@@ -322,7 +324,7 @@ function setupScene(){
     playerCamera = mat4.create();
     mat4.identity(playerCamera);
     
-    movePlayer([0,0,1]);   //move back so see cube
+    movePlayer([0,-19.8,0.6]);   //move down 198m, back 6
 	
 	setPerspective();																		 
     mat4.perspective(90, 1, 0.005, 200.0, cmapPMatrix);
@@ -446,6 +448,14 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,1,1]);	//white
 		// mat4.translate(mvMatrix, vec3.create([-0.345,0.46,0.34]));	//sideways, up, back
 		mat4.translate(mvMatrix, vec3.create([0,0.0893,0.2677]));	//sideways, up, back
+		drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
+
+		//draw car radio
+		bind2dTextureIfRequired(textureRadio);
+		var radioPixelSize = 0.00001;
+		mat4.translate(mvMatrix, vec3.create([0,0.02,1.67]));
+		mat4.rotateX(mvMatrix, -0.3);
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [radioPixelSize*1183,radioPixelSize*356,radioPixelSize*10]);
 		drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
 	}
 
