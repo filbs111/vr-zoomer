@@ -267,8 +267,11 @@ var sphereBuffersHiRes={};
 var aeroplaneBuffers={};
 var carBuffers={};
 var helicopterBuffers={};
+var houseBuffers={};
 
 function initBuffers(){
+	var cacheAvoidString = "?t="+Date.now();
+
     loadBufferData(fsBuffers, fsData);
 	loadBufferData(cubeBuffers, levelCubeData);
 	loadBufferData(sphereBuffers, makeSphereData(8,16,1));
@@ -276,9 +279,10 @@ function initBuffers(){
 	loadBufferData(sphereBuffersHiRes, makeSphereData(50,100,1));
 
 	// loadBuffersFromObjFile(aeroplaneBuffers, "./data/a10ish2.obj", loadBufferData);
-	loadBuffersFromObjFile(aeroplaneBuffers, "./data/T-50 Jet Fighter-1.obj?t="+Date.now(), loadBufferData);
+	loadBuffersFromObjFile(aeroplaneBuffers, "./data/T-50 Jet Fighter-1.obj"+cacheAvoidString, loadBufferData);
 	loadBuffersFromObjFile(carBuffers, "./data/mpv2-scaledcentred.obj", loadBufferData);
 	loadBuffersFromObjFile(helicopterBuffers, "./data/ah64-centred-.obj", loadBufferData);
+	loadBuffersFromObjFile(houseBuffers, "./data/Sobrado_98-deleted-windows-and-doors.obj"+cacheAvoidString, loadBufferData);
 
     function loadBufferData(bufferObj, sourceData){
 		bufferObj.vertexPositionBuffer = gl.createBuffer();
@@ -433,13 +437,25 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	}
 
 	if (helicopterBuffers.isLoaded){
-		var sshipScale = 0.1;
-		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [sshipScale,sshipScale,sshipScale]);
+		var helicopterScale = 0.1;
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [helicopterScale,helicopterScale,helicopterScale]);
 		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [0.25,0.25,0.25,1]);
-		mat4.translate(mvMatrix, vec3.create([-2,-20,0]));
+		mat4.translate(mvMatrix, vec3.create([-3,-20,0]));
 		prepBuffersForDrawing(helicopterBuffers, activeShaderProgram);
 		mat4.rotateY(mvMatrix, -Math.PI/2);
 		drawObjectFromPreppedBuffers(helicopterBuffers, activeShaderProgram);
+		mat4.translate(mvMatrix, vec3.create([2,20,0]));
+		mat4.set(storedMat, mvMatrix);
+	}
+
+	if (houseBuffers.isLoaded){
+		var houseScale = 0.1;
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [houseScale,houseScale,houseScale]);
+		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [2,1.4,1,1]);
+		mat4.translate(mvMatrix, vec3.create([-1,-20,-2]));
+		prepBuffersForDrawing(houseBuffers, activeShaderProgram);
+		mat4.rotateY(mvMatrix, -Math.PI/2);
+		drawObjectFromPreppedBuffers(houseBuffers, activeShaderProgram);
 		mat4.translate(mvMatrix, vec3.create([2,20,0]));
 		mat4.set(storedMat, mvMatrix);
 	}
