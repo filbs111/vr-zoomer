@@ -51,6 +51,7 @@ function init(){
 	gui.add(guiParams, "drawChequers");
 	gui.add(guiParams, "wireframe");	//see whether object projecting cubemap onto is sufficiently well tesselated
 	gui.add(guiParams, "useOtherShader");
+	gui.add(guiParams, "aeroplaneAngVec", 0.1,1.0,0.1);
 
 	var tmpObject;
 
@@ -382,10 +383,9 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	
 
 	
-	
+	var storedMat = mat4.create(mvMatrix);	//TODO don't keep creating new objects!
 	//draw plane
 	if (aeroplaneBuffers.isLoaded){
-		var storedMat = mat4.create(mvMatrix);	//TODO don't keep creating new objects!
 
 		bind2dTextureIfRequired(texture2);	//use basic texture for plane
 		var planeScale = 0.08;
@@ -398,16 +398,31 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 		mat4.translate(mvMatrix, vec3.create([2,-19.8,0]));
 		drawObjectFromPreppedBuffers(aeroplaneBuffers, activeShaderProgram);
 
-		//one in the air
-		var turnAmount = Date.now()*0.0004;	//TODO get time of requestAnimationFrame. currently maybe different time per eye.
-		mat4.rotateY(mvMatrix, turnAmount);	//turn
-		mat4.translate(mvMatrix, vec3.create([16,2,0]));
-		mat4.rotateZ(mvMatrix, Math.PI/6);	//bank left
+		var numplanes = 10;
+		var turnrad = 17;
+		var turnacc = Math.pow(guiParams.aeroplaneAngVec,2)*turnrad*10;	//metres per sec per sec. *10 because 10m per unit
+		var bankang = Math.atan2(turnacc,9.81);
 
-		//speed of plane? radius * 1000 (ms per second) * 0.0004 = radius*0.4
-		//radius = 16*10 (10m = 1 unit) . => 64m/s = 143mph (just above stall speed for a10)
+		for (var ii=0;ii<numplanes;ii++){
+			mat4.set(storedMat, mvMatrix);	//note counterintuitive function. copies a into b
 
-		drawObjectFromPreppedBuffers(aeroplaneBuffers, activeShaderProgram);
+			//one in the air
+			var turnAmount = aeroplaneFlightRotation;
+			mat4.rotateY(mvMatrix, turnAmount + ii*2*Math.PI/numplanes);	//turn
+			
+			mat4.translate(mvMatrix, vec3.create([turnrad,-16,0]));
+
+			mat4.rotateZ(mvMatrix, bankang);	//bank left
+
+			//speed of plane? radius * 1000 (ms per second) * 0.0004 = radius*0.4
+			//radius = 16*10 (10m = 1 unit) . => 64m/s = 143mph (just above stall speed for a10)
+
+			//acceleration = angular velocity * speed = 64m/s * 0.4 = 25.6 ms^-2.
+			// /9.81 = 2.6gee . angle = atan(1/2.6) => 70 deg bank. total accn = root(2.6^2 + 1) = 2.78g
+
+			drawObjectFromPreppedBuffers(aeroplaneBuffers, activeShaderProgram);
+
+		}
 		mat4.set(storedMat, mvMatrix);	//note counterintuitive function. copies a into b
 	}
 	
@@ -884,12 +899,15 @@ var guiParams = {
 						//TODO follow zoom direction (currently assumes zoom aligned with cockpit)
 	drawChequers:false,
 	wireframe:false,
-	useOtherShader:true
+	useOtherShader:true,
+	aeroplaneAngVec:0.4
 }
 var guiTestMatrix={values:[],controllers:[]};
 
 var viewScaleMultiplier = 1;
 var currentCubemapScale = 1;
+var aeroplaneFlightRotation = 0;
+
 
 var iterateMechanics = (function iterateMechanics(){
     var lastTime=Date.now();
@@ -920,7 +938,11 @@ var iterateMechanics = (function iterateMechanics(){
 		var timeElapsed = Math.min(nowTime - lastTime, 50);	//ms. 50ms -> slowdown if drop below 20fps 
 		//console.log("time elapsed: " + timeElapsed);
         lastTime=nowTime;
-        
+		
+		aeroplaneFlightRotation += guiParams.aeroplaneAngVec*timeElapsed*0.001;
+		aeroplaneFlightRotation %= 2*Math.PI;
+			//TODO correction for display time (unknown if vr object gives better timer)
+		
         timeTracker+=timeElapsed;
 		var numSteps = Math.floor(timeTracker/timeStep);
 		timeTracker-=numSteps*timeStep;
