@@ -1,3 +1,4 @@
+var measuredIpd=0;
 var shaderPrograms={};
 var pMatrix = mat4.create();
 var pMatrixScreen = mat4.create();
@@ -43,6 +44,8 @@ function init(){
 
 	gui.add(guiParams, "sideLook", -3.2,3.2,0.05);	//radians. applies to non-vr mode
 	gui.add(guiParams, "stereoSeparation", 0,0.005,0.0001);	//half eye separation, 1 unit = 10m
+	gui.add(guiParams, "lockHeadPosToFrame");
+	gui.add(guiParams, "drawDebugCubeFrames");
 	gui.add(guiParams, "drawCircles");
 	gui.add(guiParams, "drawSnellenChart");
 	gui.add(guiParams, "drawNumberPlate");
@@ -262,6 +265,7 @@ var fsData = {
 
 var fsBuffers={};
 var cubeBuffers={};
+var cubeFrameBuffers={};
 var sphereBuffers={};
 var sphereBuffersHiRes={};
 var aeroplaneBuffers={};
@@ -274,6 +278,7 @@ function initBuffers(){
 
     loadBufferData(fsBuffers, fsData);
 	loadBufferData(cubeBuffers, levelCubeData);
+	loadBufferData(cubeFrameBuffers, cubeFrameSubdivData);
 	loadBufferData(sphereBuffers, makeSphereData(8,16,1));
 	//loadBufferData(sphereBuffersHiRes, makeSphereData(127,255,1)); //near index limit 65536.
 	loadBufferData(sphereBuffersHiRes, makeSphereData(50,100,1));
@@ -309,6 +314,11 @@ function initBuffers(){
 		}
 		bufferObj.vertexIndexBuffer = gl.createBuffer();
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferObj.vertexIndexBuffer);
+
+		if (!sourceData.indices){
+			sourceData.indices = sourceData.faces.flat();
+		}
+
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(sourceData.indices), gl.STATIC_DRAW);
 		bufferObj.vertexIndexBuffer.itemSize = 3;
 		bufferObj.vertexIndexBuffer.numItems = sourceData.indices.length;
@@ -490,6 +500,36 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 		mat4.rotateX(mvMatrix, -0.3);
 		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [radioPixelSize*1183,radioPixelSize*356,radioPixelSize*10]);
 		drawObjectFromPreppedBuffers(cubeBuffers, activeShaderProgram);
+
+		mat4.set(storedMat, mvMatrix);
+	}
+
+	//draw cube frame.
+	//TODO draw this at origin of player frame, so can see what it rotating etc.
+	var cfScale = 1;
+	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [cfScale,cfScale,cfScale]);
+	gl.uniform4fv(activeShaderProgram.uniforms.uColor, [0,3,0,1]);	//green
+	mat4.translate(mvMatrix, vec3.create([5,-19,0]));
+	prepBuffersForDrawing(cubeFrameBuffers, activeShaderProgram);
+	drawObjectFromPreppedBuffers(cubeFrameBuffers, activeShaderProgram);
+
+	if (guiParams.drawDebugCubeFrames){
+		cfScale = 0.1;
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [cfScale,cfScale,cfScale*2]);
+			//longer so can see in standard fov view. 2mx2mx4m box
+
+		mat4.identity(mvMatrix);
+		drawObjectFromPreppedBuffers(cubeFrameBuffers, activeShaderProgram);
+
+		//draw another box where "playerCamera" is (the frame that flight controls move. head position is
+		//locked to this if guiParams.lockHeadPosToFrame is true
+		mat4.set(storedMat, mvMatrix);
+		mat4.multiply(mvMatrix, playerCamera);
+
+		gl.uniform4fv(activeShaderProgram.uniforms.uColor, [3,0,0,1]);	//red
+		cfScale = 0.2;
+		gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [cfScale,cfScale,cfScale*1.9]);
+		drawObjectFromPreppedBuffers(cubeFrameBuffers, activeShaderProgram);
 	}
 
 	mat4.set(storedMat, mvMatrix);	//note counterintuitive function. copies a into b
@@ -565,7 +605,12 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
     gl.useProgram(activeShaderProgram);
 	prepBuffersForDrawing(sphereBuffers, activeShaderProgram);
 
-	var miniBoxScale = 0.001;
+
+	var miniBoxScale = 0.1;
+	gl.depthFunc(gl.ALWAYS);
+	//make balls big enough that despite drawing in "cockpit" frame, don't have much parallax
+						//when move head (TODO draw at inf, or at eye pos)
+
 	gl.uniform3fv(activeShaderProgram.uniforms.uModelScale, [miniBoxScale,miniBoxScale,miniBoxScale]);
     gl.uniform4fv(activeShaderProgram.uniforms.uColor, [1,1,0,1]);	//yellow
 
@@ -592,6 +637,8 @@ function drawWorldScene(extraViewMat, camNum, positionShift, vecPositionShift){	
 	drawBallRing([0,0,1,1], 10, distAway, 0);			//blue, splitting front, back
 	drawBallRing([1,0.5,0,1], 20, distAway45deg, distAway45deg);	//orange, 45 deg in front
 	drawBallRing([1,0.5,0,1], 20, distAway45deg, -distAway45deg);	//orange, 45 deg behind
+
+	gl.depthFunc(gl.LESS);
 
 	function drawBallRing(color, angstep, side, front){
 		gl.uniform4fv(activeShaderProgram.uniforms.uColor, color);
@@ -702,12 +749,32 @@ function updateCubemap(vecEyeSeparation, eyeViewMat){
 	
 	if (vrDisplay && vrDisplay.isPresenting){
 		
-		leftView[12]=0;		//TODO use headset position when drawing cubemap.
-		leftView[13]=0;		//for now, just use rotation part of view matrix - effectively
-		leftView[14]=0;		//infinitely distant cubemap. FWIW could be made more efficient
-		rightView[12]=0;	//by duplicating left, right views, if same rotation part (this is true for rift, perhaps for this reason)
-		rightView[13]=0;
-		rightView[14]=0;
+		//TODO allow zeroing of view. where should mobile reference frame be? move with head but not rotate? or show it- eg put
+		// at seat of pants
+		//TODO proper solution - use leftView/rightview because user IPD is set.
+
+		var avgView = [(leftView[12]+rightView[12])/20, (leftView[13]+rightView[13])/20, (leftView[14]+rightView[14])/20];
+			//note division by 10 because 1 unit in game = 10m
+
+		var diffView = [leftView[12]-rightView[12], leftView[13]-rightView[13], leftView[14]-rightView[14]];
+		measuredIpd = Math.sqrt(diffView[0]*diffView[0] + diffView[1]*diffView[1] + diffView[2]*diffView[2]);
+			//allow to be found by console command
+		
+		if (guiParams.lockHeadPosToFrame){
+			leftView[12]=0;		//TODO use headset position when drawing cubemap.
+			leftView[13]=0;		//for now, just use rotation part of view matrix - effectively
+			leftView[14]=0;		//infinitely distant cubemap. FWIW could be made more efficient
+			rightView[12]=0;	//by duplicating left, right views, if same rotation part (this is true for rift, perhaps for this reason)
+			rightView[13]=0;
+			rightView[14]=0;
+		}else{
+			leftView[12]=avgView[0];
+			leftView[13]=avgView[1];		
+			leftView[14]=avgView[2];		
+			rightView[12]=avgView[0];	
+			rightView[13]=avgView[1];
+			rightView[14]=avgView[2];
+		}
 
 		if (guiParams.drawUsingCubemap){
 			updateCubemap(vecEyeSeparation, leftView);
@@ -930,7 +997,9 @@ var guiParams = {
 	holdZoomMagFactor:4,
 	stabilisation:0.5,	//1= fixed, 0=responds to movement without smoothing
 	sideLook:0,
-	stereoSeparation:0.0033,	//~6.6cm separation. approx human
+	stereoSeparation:0.0034,	//~6.8cm separation. approx human
+	lockHeadPosToFrame:false,
+	drawDebugCubeFrames:true,
 	drawCircles:false,
 	drawSnellenChart:false,
 	drawNumberPlate:false,
